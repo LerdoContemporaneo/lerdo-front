@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card } from './components/ui/card.tsx';
-import { TeacherAttendanceRecord } from './types/index.ts';
+import { Card } from './components/ui/card';
+import { TeacherAttendanceRecord } from './types/index';
 
 
 // Mock metrics - replace with apiGet in future
