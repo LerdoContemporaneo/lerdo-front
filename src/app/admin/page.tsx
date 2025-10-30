@@ -5,6 +5,8 @@ import { Table } from '../components/ui/Table';
 import { Input } from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import ProtectedRoute from '../components/ProtectedRoute';
+import AppLayout from '../components/AppLayout';
 
 const mockTeachers: Teacher[] = [
 { id: 't1', firstName: 'Ana', lastName: 'Pérez', email: 'ana@escuela.test' },
@@ -12,7 +14,7 @@ const mockTeachers: Teacher[] = [
 ];
 
 
-export default function AdminPage() {
+function AdminContent() {
 const [open, setOpen] = useState(false);
 const [records, setRecords] = useState<TeacherAttendanceRecord[]>([]);
 
@@ -39,17 +41,46 @@ const columns = [
 ];
 
 
-return (
-<div className="space-y-4">
-<div className="flex items-center justify-between">
-<h2 className="text-xl font-semibold">Módulo Administrativo</h2>
-<div className="flex items-center gap-2">
-<Button onClick={() => setOpen(true)}>Registrar puntualidad</Button>
-</div>
-</div>
+// return (
+// <div className="space-y-4">
+// <div className="flex items-center justify-between">
+// <h2 className="text-xl font-semibold">Módulo Administrativo</h2>
+// <div className="flex items-center gap-2">
+// <Button onClick={() => setOpen(true)}>Registrar puntualidad</Button>
+// </div>
+// </div>
+
+  return (
+    <div className="space-y-4">
+      {/* ... todo el contenido del módulo administrativo ... */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Módulo Administrativo</h2>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setOpen(true)}>Registrar puntualidad</Button>
+        </div>
+      </div>
+      <Table columns={columns} data={records as any} />
+      <Modal open={open} onClose={() => setOpen(false)} title="Registrar puntualidad">
+        <AttendanceForm teachers={mockTeachers} onSubmit={(d) => addRecord(d)} />
+      </Modal>
+    </div>
+  );
+}
+
+// Este es el componente que se exporta por defecto
+export default function AdminPageWrapper() {
+  return (
+    <ProtectedRoute allowedRoles={['admin']}>
+      {/* Usamos el AppLayout que incluye el Navbar */}
+      <AppLayout>
+        <AdminContent /> 
+      </AppLayout>
+    </ProtectedRoute>
+  );
+}
 
 
-<Table columns={columns} data={records as any} />
+{/* <Table columns={columns} data={records as any} />
 
 
 <Modal open={open} onClose={() => setOpen(false)} title="Registrar puntualidad">
@@ -57,7 +88,7 @@ return (
 </Modal>
 </div>
 );
-}
+} */}
 
 function AttendanceForm({ teachers, onSubmit }: { teachers: Teacher[]; onSubmit: (d: Partial<TeacherAttendanceRecord>) => void }) {
 const [teacherId, setTeacherId] = useState<string>(teachers[0]?.id ?? '');

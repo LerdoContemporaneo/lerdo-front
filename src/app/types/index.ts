@@ -5,7 +5,7 @@ export interface Teacher {
 id: ID;
 firstName: string;
 lastName: string;
-email?: string;
+email: string;
 hiredAt?: string; // ISO date
 }
 

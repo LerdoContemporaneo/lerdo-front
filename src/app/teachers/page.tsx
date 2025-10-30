@@ -4,13 +4,15 @@ import { Student, StudentAttendanceRecord, Task, Incident } from '../types/index
 import { Table } from '../components/ui/Table';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import ProtectedRoute from '../components/ProtectedRoute';
+import AppLayout from '../components/AppLayout';
 
 const mockStudents: Student[] = [
 { id: 's1', firstName: 'Carlos', lastName: 'Gómez', grade: '3A' },
 { id: 's2', firstName: 'María', lastName: 'López', grade: '2B' },
 ];
 
-export default function TeachersPage() {
+function TeachersContent() {
 const [attendance, setAttendance] = useState<StudentAttendanceRecord[]>([]);
 const [openAttend, setOpenAttend] = useState(false);
 const [openTask, setOpenTask] = useState(false);
@@ -54,6 +56,18 @@ data={attendance as any}
 </Modal>
 </div>
 );
+}
+
+// Este es el componente que se exporta por defecto
+export default function TeachersPageWrapper() {
+  return (
+    <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+      {/* Usamos el AppLayout que incluye el Navbar */}
+      <AppLayout>
+        <TeachersContent /> 
+      </AppLayout>
+    </ProtectedRoute>
+  );
 }
 
 function StudentAttendanceForm({ students, onSubmit }: { students: Student[]; onSubmit: (d: Partial<StudentAttendanceRecord>) => void }) {
