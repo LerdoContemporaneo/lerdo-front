@@ -4,7 +4,7 @@
 
 import './globals.css';
 import React from 'react';
-import Layout from './components/Layout';
+import Layout from './components/layout';
 import { AuthProvider } from './context/AuthContext';
 // Importa metadata si la necesitas.
 
