@@ -8,8 +8,8 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import AppLayout from '../components/AppLayout';
 
 const mockStudents: Student[] = [
-{ id: 's1', firstName: 'Carlos', lastName: 'Gómez', grade: '3A' },
-{ id: 's2', firstName: 'María', lastName: 'López', grade: '2B' },
+  { id: 's1', firstName: 'Carlos', lastName: 'Gómez', grade: '3A' },
+  { id: 's2', firstName: 'María', lastName: 'López', grade: '2B' },
 ];
 
 function TeachersContent() {
@@ -20,13 +20,13 @@ const [openIncident, setOpenIncident] = useState(false);
 
 return (
 <div className="space-y-4">
-<div className="flex items-center justify-between">
-<h2 className="text-xl font-semibold">Módulo Maestros</h2>
-<div className="flex items-center gap-2">
-<Button onClick={() => setOpenAttend(true)}>Registrar Asistencia</Button>
-<Button onClick={() => setOpenTask(true)} variant="ghost">Tareas</Button>
-<Button onClick={() => setOpenIncident(true)} variant="danger">Incidencia</Button>
-</div>
+  <div className="flex items-center justify-between">
+  <h2 className="text-xl font-semibold">Módulo Maestros</h2>
+  <div className="flex items-center gap-2">
+    <Button onClick={() => setOpenAttend(true)}>Registrar Asistencia</Button>
+    <Button onClick={() => setOpenTask(true)} variant="ghost">Tareas</Button>
+    <Button onClick={() => setOpenIncident(true)} variant="danger">Incidencia</Button>
+  </div>
 </div>
 
 
@@ -42,7 +42,7 @@ data={attendance as any}
 
 
 <Modal open={openAttend} onClose={() => setOpenAttend(false)} title="Registrar Asistencia">
-<StudentAttendanceForm students={mockStudents} onSubmit={(d) => setAttendance((s) => [d as StudentAttendanceRecord, ...s])} />
+  <StudentAttendanceForm students={mockStudents} onSubmit={(d) => setAttendance((s) => [d as StudentAttendanceRecord, ...s])} />
 </Modal>
 
 
@@ -84,29 +84,29 @@ onSubmit({ id: String(Date.now()), studentId, date: new Date().toISOString(), st
 }}
 className="space-y-3"
 >
-<div>
-<label className="text-sm text-gray-700">Alumno</label>
-<select value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full px-3 py-2 border rounded-md">
-{students.map((s) => (
-<option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.grade}</option>
-))}
-</select>
-</div>
-<div>
-<label className="text-sm text-gray-700">Estado</label>
-<select value={status} onChange={(e) => setStatus(e.target.value as any)} className="w-full px-3 py-2 border rounded-md">
-<option value="present">Presente</option>
-<option value="late">Tarde</option>
-<option value="absent">Ausente</option>
-</select>
-</div>
-<div>
-<label className="text-sm text-gray-700">Asignatura</label>
-<input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full px-3 py-2 border rounded-md" />
-</div>
-<div className="flex justify-end">
-<Button type="submit">Registrar</Button>
-</div>
+  <div>
+    <label className="text-sm text-gray-700">Alumno</label>
+    <select value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full px-3 py-2 border rounded-md">
+    {students.map((s) => (
+    <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.grade}</option>
+    ))}
+    </select>
+    </div>
+    <div>
+    <label className="text-sm text-gray-700">Estado</label>
+    <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="w-full px-3 py-2 border rounded-md">
+    <option value="present">Presente</option>
+    <option value="late">Tarde</option>
+    <option value="absent">Ausente</option>
+    </select>
+    </div>
+    <div>
+    <label className="text-sm text-gray-700">Asignatura</label>
+    <input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+  </div>
+  <div className="flex justify-end">
+    <Button type="submit">Registrar</Button>
+  </div>
 </form>
 );
 }

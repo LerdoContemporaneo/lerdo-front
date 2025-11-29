@@ -6,7 +6,7 @@ export default function TestConexion() {
   const [usuarios, setUsuarios] = useState([]);
 
   useEffect(() => {
-    fetch(`${API_URL}/usuarios`, { credentials: "include" })
+    fetch(`${API_URL}users`, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => setUsuarios(data))
       .catch((err) => console.error("❌ Error:", err));

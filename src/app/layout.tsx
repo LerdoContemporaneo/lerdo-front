@@ -15,7 +15,6 @@ export const metadata = {
 };
 
 // No uses 'use client' en el RootLayout si quieres metadata o si quieres usar Server Components.
-// Tu AuthProvider está en un Client Component, lo que es correcto.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
