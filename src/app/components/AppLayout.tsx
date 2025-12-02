@@ -15,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold">Control CELC</h1>
             <span className="text-sm text-gray-500">
-              {user ? `Bienvenido, ${user.username} (${user.role})` : 'Cargando...'}
+              {user ? `Bienvenido, ${user.name} (${user.role})` : 'Cargando...'}
             </span>
           </div>
           <nav className="flex items-center gap-3">
