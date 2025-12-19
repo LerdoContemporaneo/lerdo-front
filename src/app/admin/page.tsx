@@ -1,135 +1,88 @@
 'use client';
-import React, { useState } from 'react';
-import { Teacher, TeacherAttendanceRecord } from '../types/index';
+import React, { useState, useEffect } from 'react';
 import { Table } from '../components/ui/Table';
-import { Input } from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AppLayout from '../components/AppLayout';
-
-const mockTeachers: Teacher[] = [
-{ id: 't1', firstName: 'Ana', lastName: 'Pérez', email: 'ana@escuela.test' },
-{ id: 't2', firstName: 'Luis', lastName: 'Ramírez', email: 'luis@escuela.test' },
-];
-
+import { userService, attendanceService } from '../services/schoolService';
 
 function AdminContent() {
-const [open, setOpen] = useState(false);
-const [records, setRecords] = useState<TeacherAttendanceRecord[]>([]);
+  const [open, setOpen] = useState(false);
+  const [maestros, setMaestros] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    try {
+      const users = await userService.getAll();
+      // Solo mostramos administradores y maestros
+      setMaestros(users.filter((u: any) => u.role !== 'alumno'));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-function addRecord(data: Partial<TeacherAttendanceRecord>) {
-const record: TeacherAttendanceRecord = {
-id: String(Date.now()),
-teacherId: data.teacherId || mockTeachers[0].id,
-date: data.date || new Date().toISOString(),
-status: (data.status as any) || 'present',
-note: data.note || '',
-};
-setRecords((s) => [record, ...s]);
-setOpen(false);
-}
+  useEffect(() => { loadData(); }, []);
 
+  const columns = [
+    { key: 'name', header: 'Nombre' },
+    { key: 'email', header: 'Email' },
+    { key: 'role', header: 'Rol', render: (r: any) => (
+      <span className="capitalize bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">{r.role}</span>
+    )},
+  ];
 
+  const handleAttendance = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    await attendanceService.createTeacher(
+      Number(formData.get('maestroId')),
+      formData.get('estado') as string
+    );
+    alert("Puntualidad registrada");
+    setOpen(false);
+  };
 
-const columns = [
-{ key: 'teacher', header: 'Docente', render: (r: any) => mockTeachers.find((t) => t.id === r.teacherId)?.firstName + ' ' + mockTeachers.find((t) => t.id === r.teacherId)?.lastName },
-{ key: 'date', header: 'Fecha', render: (r: any) => new Date(r.date).toLocaleString() },
-{ key: 'status', header: 'Estado' },
-{ key: 'note', header: 'Nota' },
-];
-
-
-// return (
-// <div className="space-y-4">
-// <div className="flex items-center justify-between">
-// <h2 className="text-xl font-semibold">Módulo Administrativo</h2>
-// <div className="flex items-center gap-2">
-// <Button onClick={() => setOpen(true)}>Registrar puntualidad</Button>
-// </div>
-// </div>
+  if (loading) return <div className="p-10 text-center">Conectando con la base de datos...</div>;
 
   return (
     <div className="space-y-4">
-      {/* ... todo el contenido del módulo administrativo ... */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Módulo Administrativo</h2>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setOpen(true)}>Registrar puntualidad</Button>
-        </div>
+        <Button onClick={() => setOpen(true)}>Registrar puntualidad</Button>
       </div>
-      <Table columns={columns} data={records as any} />
-      <Modal open={open} onClose={() => setOpen(false)} title="Registrar puntualidad">
-        <AttendanceForm teachers={mockTeachers} onSubmit={(d) => addRecord(d)} />
+
+      <Table columns={columns} data={maestros} />
+
+      <Modal open={open} onClose={() => setOpen(false)} title="Registrar puntualidad de docente">
+        <form onSubmit={handleAttendance} className="space-y-4 p-2">
+          <div>
+            <label className="text-sm block mb-1">Docente</label>
+            <select name="maestroId" className="w-full p-2 border rounded">
+              {maestros.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm block mb-1">Estado</label>
+            <select name="estado" className="w-full p-2 border rounded">
+              <option value="Presente">Presente</option>
+              <option value="Tarde">Tarde</option>
+              <option value="Ausente">Ausente</option>
+            </select>
+          </div>
+          <Button type="submit" className="w-full">Guardar Registro</Button>
+        </form>
       </Modal>
     </div>
   );
 }
 
-// Este es el componente que se exporta por defecto
-export default function AdminPageWrapper() {
+export default function AdminPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin']}>
-      {/* Usamos el AppLayout que incluye el Navbar */}
-      <AppLayout>
-        <AdminContent /> 
-      </AppLayout>
+    <ProtectedRoute allowedRoles={['administrador']}>
+      <AppLayout><AdminContent /></AppLayout>
     </ProtectedRoute>
   );
 }
-
-
-{/* <Table columns={columns} data={records as any} />
-
-
-<Modal open={open} onClose={() => setOpen(false)} title="Registrar puntualidad">
-<AttendanceForm teachers={mockTeachers} onSubmit={(d) => addRecord(d)} />
-</Modal>
-</div>
-);
-} */}
-
-function AttendanceForm({ teachers, onSubmit }: { teachers: Teacher[]; onSubmit: (d: Partial<TeacherAttendanceRecord>) => void }) {
-const [teacherId, setTeacherId] = useState<string>(teachers[0]?.id ?? '');
-const [status, setStatus] = useState<'present' | 'late' | 'absent'>('present');
-const [note, setNote] = useState('');
-
-
-return (
-<form
-onSubmit={(e) => {
-e.preventDefault();
-onSubmit({ teacherId, status, note, date: new Date().toISOString() });
-}}
-className="space-y-3"
->
-<div>
-<label className="text-sm text-gray-700">Docente</label>
-<select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className="w-full px-3 py-2 border rounded-md">
-{teachers.map((t) => (
-<option key={t.id} value={t.id}>
-{t.firstName} {t.lastName}
-</option>
-))}
-</select>
-</div>
-<div>
-<label className="text-sm text-gray-700">Estado</label>
-<select value={status} onChange={(e) => setStatus(e.target.value as any)} className="w-full px-3 py-2 border rounded-md">
-<option value="Presente">Presente</option>
-<option value="Tarde">Tarde</option>
-<option value="Ausente">Ausente</option>
-</select>
-</div>
-<div>
-<label className="text-sm text-gray-700">Nota</label>
-<textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full px-3 py-2 border rounded-md" />
-</div>
-<div className="flex justify-end">
-<Button type="submit">Guardar</Button>
-</div>
-</form>
-);
-}
-
