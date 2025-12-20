@@ -7,7 +7,7 @@ import Pagination from '../components/ui/Pagination';
 import { reportService } from '../services/schoolService';
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -15,19 +15,19 @@ export default function ReportsPage() {
     reportService.getAll().then(setReports);
   }, []);
 
-  const filtered = reports.filter((r: any) => 
-    r.titulo.toLowerCase().includes(search.toLowerCase()) || 
-    r.alumno?.nombre.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = Array.isArray(reports) ? reports.filter((r: any) => 
+    r.titulo?.toLowerCase().includes(search.toLowerCase()) || 
+    r.alumno?.nombre?.toLowerCase().includes(search.toLowerCase())
+  ) : [];
 
   return (
     <AppLayout>
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
-        <h2 className="text-2xl font-bold">Historial de Reportes</h2>
+        <h2 className="text-2xl font-bold">Reportes</h2>
         <Input 
-          placeholder="Filtrar por título o alumno..." 
+          placeholder="Filtrar..." 
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
         />
         <Table 
           columns={[
@@ -40,7 +40,7 @@ export default function ReportsPage() {
         />
         <Pagination 
           currentPage={currentPage} 
-          totalPages={Math.ceil(filtered.length / 5)} 
+          totalPages={Math.ceil(filtered.length / 5) || 1} 
           onPageChange={setCurrentPage} 
         />
       </div>

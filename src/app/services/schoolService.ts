@@ -5,34 +5,35 @@ const fetchConfig = {
   headers: { 'Content-Type': 'application/json' },
 };
 
-// --- SERVICIO DE USUARIOS (Administradores/Maestros) ---
+// Función auxiliar para asegurar que siempre devolvemos un array
+const ensureArray = (result: any) => {
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result.data)) return result.data;
+  return [];
+};
+
 export const userService = {
   getAll: async () => {
-    const res = await fetch(`${BASE_URL}/users`, fetchConfig);
-    const result = await res.json();
-    return result.data || result || [];
+    try {
+      const res = await fetch(`${BASE_URL}/users`, fetchConfig);
+      const result = await res.json();
+      return ensureArray(result);
+    } catch (e) { return []; }
   },
 };
 
-// --- SERVICIO DE ALUMNOS ---
 export const studentService = {
   getAll: async () => {
-    const res = await fetch(`${BASE_URL}/alumnos`, fetchConfig);
-    const result = await res.json();
-    return result.data || result || [];
+    try {
+      const res = await fetch(`${BASE_URL}/alumnos`, fetchConfig);
+      const result = await res.json();
+      return ensureArray(result);
+    } catch (e) { return []; }
   },
   create: async (data: any) => {
     const res = await fetch(`${BASE_URL}/alumnos`, { 
       ...fetchConfig, 
       method: 'POST', 
-      body: JSON.stringify(data) 
-    });
-    return res.json();
-  },
-  update: async (data: any) => {
-    const res = await fetch(`${BASE_URL}/alumnos`, { 
-      ...fetchConfig, 
-      method: 'PATCH', 
       body: JSON.stringify(data) 
     });
     return res.json();
@@ -47,12 +48,13 @@ export const studentService = {
   }
 };
 
-// --- SERVICIO DE GRADOS (GRUPOS) ---
 export const gradeService = {
   getAll: async () => {
-    const res = await fetch(`${BASE_URL}/grados`, fetchConfig);
-    const result = await res.json();
-    return result.data || result || [];
+    try {
+      const res = await fetch(`${BASE_URL}/grados`, fetchConfig);
+      const result = await res.json();
+      return ensureArray(result);
+    } catch (e) { return []; }
   },
   create: async (data: any) => {
     const res = await fetch(`${BASE_URL}/grados`, { 
@@ -63,24 +65,21 @@ export const gradeService = {
     return res.json();
   },
   delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/grados/${id}`, { 
-      ...fetchConfig, 
-      method: 'DELETE' 
-    });
+    const res = await fetch(`${BASE_URL}/grados/${id}`, { ...fetchConfig, method: 'DELETE' });
     return res.json();
   }
 };
 
-// --- SERVICIO DE REPORTES ---
 export const reportService = {
   getAll: async () => {
-    const res = await fetch(`${BASE_URL}/reportes`, fetchConfig);
-    const result = await res.json();
-    return result.data || result || [];
+    try {
+      const res = await fetch(`${BASE_URL}/reportes`, fetchConfig);
+      const result = await res.json();
+      return ensureArray(result);
+    } catch (e) { return []; }
   }
 };
 
-// --- SERVICIO DE ASISTENCIAS ---
 export const attendanceService = {
   createStudent: async (alumnoId: number, estado: string) => {
     const res = await fetch(`${BASE_URL}/asistencia`, {
@@ -89,18 +88,9 @@ export const attendanceService = {
       body: JSON.stringify({ alumnoId, estado }),
     });
     return res.json();
-  },
-  createTeacher: async (maestroId: number, estado: string) => {
-    const res = await fetch(`${BASE_URL}/asistencia-maestro`, {
-      ...fetchConfig,
-      method: 'POST',
-      body: JSON.stringify({ maestroId, estado }),
-    });
-    return res.json();
   }
 };
 
-// --- SERVICIO DE INCIDENCIAS ---
 export const incidentService = {
   create: async (data: any) => {
     const res = await fetch(`${BASE_URL}/incidencias`, {

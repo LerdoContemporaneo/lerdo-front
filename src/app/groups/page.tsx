@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '../components/AppLayout';
 import { Table } from '../components/ui/Table';
-import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
+import { Input } from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { gradeService, userService } from '../services/schoolService';
@@ -12,15 +12,13 @@ import { useAuth } from '../hooks/useAuth';
 export default function GroupsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'administrador';
-  const [groups, setGroups] = useState([]);
-  const [teachers, setTeachers] = useState([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadData = async () => {
-    const [gData, uData] = await Promise.all([
-      gradeService.getAll(),
-      userService.getAll()
-    ]);
+    const gData = await gradeService.getAll();
+    const uData = await userService.getAll();
     setGroups(gData);
     setTeachers(uData.filter((u: any) => u.role === 'maestro'));
   };
@@ -42,14 +40,14 @@ export default function GroupsPage() {
     <AppLayout>
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Grupos / Grados</h2>
+          <h2 className="text-2xl font-bold">Grupos</h2>
           {isAdmin && <Button onClick={() => setIsModalOpen(true)}>+ Crear Grupo</Button>}
         </div>
 
         <Table 
           columns={[
-            { key: 'nombre', header: 'Nombre del Grupo' },
-            { key: 'maestro', header: 'Maestro Asignado', render: (r: any) => r.maestro?.name || 'No asignado' },
+            { key: 'nombre', header: 'Grupo' },
+            { key: 'maestro', header: 'Maestro', render: (r: any) => r.maestro?.name || 'No asignado' },
             { 
                 key: 'actions', 
                 header: 'Acciones', 
@@ -64,14 +62,14 @@ export default function GroupsPage() {
 
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nuevo Grupo">
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <Input label="Nombre del Grupo (ej: 1º A)" name="nombre" required />
+          <Input label="Nombre (ej: 1º B)" name="nombre" required />
           <Select 
-            label="Seleccionar Maestro" 
+            label="Maestro" 
             name="maestroId" 
             required 
             options={teachers.map((t: any) => ({ label: t.name, value: t.id.toString() }))}
           />
-          <Button type="submit" className="w-full">Crear Grupo</Button>
+          <Button type="submit" className="w-full">Crear</Button>
         </form>
       </Modal>
     </AppLayout>

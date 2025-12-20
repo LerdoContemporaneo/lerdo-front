@@ -14,18 +14,16 @@ export default function StudentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'administrador';
   
-  const [students, setStudents] = useState([]);
-  const [grades, setGrades] = useState([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const itemsPerPage = 6;
 
   const loadData = async () => {
-    const [sData, gData] = await Promise.all([
-      studentService.getAll(),
-      gradeService.getAll()
-    ]);
+    const sData = await studentService.getAll();
+    const gData = await gradeService.getAll();
     setStudents(sData);
     setGrades(gData);
   };
@@ -33,39 +31,44 @@ export default function StudentsPage() {
   useEffect(() => { loadData(); }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    e.preventDefault(); // ESTO ES VITAL: Evita que la página se recargue
     const formData = new FormData(e.currentTarget);
+    
     const payload = {
-      nombre: formData.get('nombre'),
-      apellido: formData.get('apellido'),
-      matricula: formData.get('matricula'),
-      tutor: formData.get('tutor'),
+      nombre: formData.get('nombre') as string,
+      apellido: formData.get('apellido') as string,
+      matricula: formData.get('matricula') as string,
+      tutor: formData.get('tutor') as string,
       gradoId: Number(formData.get('gradoId')),
     };
 
     try {
-      await studentService.create(payload);
-      alert("Alumno registrado con éxito");
-      setIsModalOpen(false);
-      loadData();
+      const response = await studentService.create(payload);
+      if (response.id || response.uuid) {
+        alert("¡Alumno registrado!");
+        setIsModalOpen(false);
+        loadData();
+      } else {
+        alert("Error: " + (response.msg || "No se pudo guardar"));
+      }
     } catch (error) {
-      alert("Error al registrar");
+      alert("Error de conexión con el servidor");
     }
   };
 
-  const filtered = students.filter((s: any) => 
-    s.nombre.toLowerCase().includes(search.toLowerCase()) || 
-    s.matricula.includes(search)
-  );
+  const filtered = Array.isArray(students) ? students.filter((s: any) => 
+    s.nombre?.toLowerCase().includes(search.toLowerCase()) || 
+    s.matricula?.includes(search)
+  ) : [];
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
   const currentData = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <AppLayout>
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800">Alumnos Registrados</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Alumnos</h2>
           {isAdmin && <Button onClick={() => setIsModalOpen(true)}>+ Nuevo Alumno</Button>}
         </div>
 
@@ -78,18 +81,14 @@ export default function StudentsPage() {
         <Table 
           columns={[
             { key: 'matricula', header: 'Matrícula' },
-            { key: 'nombre', header: 'Nombre Completo', render: (r: any) => `${r.nombre} ${r.apellido}` },
-            { key: 'tutor', header: 'Tutor' },
-            { key: 'grado', header: 'Grupo', render: (r: any) => r.grado?.nombre || 'Sin grupo' },
+            { key: 'nombre', header: 'Nombre', render: (r: any) => `${r.nombre} ${r.apellido}` },
+            { key: 'grado', header: 'Grupo', render: (r: any) => r.grado?.nombre || 'S/G' },
             { 
               key: 'actions', 
               header: 'Acciones', 
               render: (r: any) => isAdmin && (
                 <Button variant="danger" className="py-1 px-2 text-xs" onClick={async () => {
-                  if(confirm('¿Eliminar alumno?')) {
-                    await studentService.delete(r.id);
-                    loadData();
-                  }
+                  if(confirm('¿Eliminar?')) { await studentService.delete(r.id); loadData(); }
                 }}>Eliminar</Button>
               )
             }
@@ -101,28 +100,22 @@ export default function StudentsPage() {
           currentPage={currentPage} 
           totalPages={totalPages} 
           onPageChange={setCurrentPage} 
-          className="mt-4"
         />
       </div>
 
-      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar Nuevo Alumno">
+      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nuevo Alumno">
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Nombre(s)" name="nombre" required />
-            <Input label="Apellido(s)" name="apellido" required />
-          </div>
+          <Input label="Nombre" name="nombre" required />
+          <Input label="Apellido" name="apellido" required />
           <Input label="Matrícula" name="matricula" required />
-          <Input label="Nombre del Tutor" name="tutor" required />
+          <Input label="Tutor" name="tutor" required />
           <Select 
-            label="Asignar Grupo" 
+            label="Grupo" 
             name="gradoId" 
             required 
             options={grades.map((g: any) => ({ label: g.nombre, value: g.id.toString() }))}
           />
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" className="w-full">Guardar</Button>
-            <Button type="button" variant="ghost" className="w-full" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-          </div>
+          <Button type="submit" className="w-full">Guardar Alumno</Button>
         </form>
       </Modal>
     </AppLayout>
