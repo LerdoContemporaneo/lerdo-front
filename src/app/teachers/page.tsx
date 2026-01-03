@@ -1,93 +1,79 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import AppLayout from '../components/AppLayout';
 import { Table } from '../components/ui/Table';
+import { Select } from '../components/ui/Select';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import ProtectedRoute from '../components/ProtectedRoute';
-import AppLayout from '../components/AppLayout';
-import { studentService, attendanceService, incidentService } from '../services/schoolService';
-
-function TeachersContent() {
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState<{type: 'asistencia' | 'incidencia' | null, open: boolean}>({type: null, open: false});
-
-  useEffect(() => {
-    studentService.getAll().then(data => {
-      setStudents(data);
-      setLoading(false);
-    });
-  }, []);
-
-  const handleAction = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const studentId = Number(formData.get('studentId'));
-
-    if (modal.type === 'asistencia') {
-      await attendanceService.createStudent(studentId, formData.get('estado') as string);
-    } else {
-      await incidentService.create({
-        alumnoId: studentId,
-        tipo: formData.get('tipo') as string,
-        descripcion: formData.get('descripcion') as string
-      });
-    }
-    alert("Registro completado");
-    setModal({ type: null, open: false });
-  };
-
-  if (loading) return <div className="p-10 text-center">Cargando alumnos...</div>;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Módulo Maestros</h2>
-        <div className="flex gap-2">
-          <Button onClick={() => setModal({type: 'asistencia', open: true})}>Asistencia</Button>
-          <Button variant="danger" onClick={() => setModal({type: 'incidencia', open: true})}>Incidencia</Button>
-        </div>
-      </div>
-
-      <Table 
-        columns={[
-          { key: 'nombre', header: 'Nombre', render: (r: any) => `${r.nombre} ${r.apellido}` },
-          { key: 'matricula', header: 'Matrícula' },
-          { key: 'tutor', header: 'Tutor' }
-        ]} 
-        data={students} 
-      />
-
-      <Modal open={modal.open} onClose={() => setModal({type: null, open: false})} title={modal.type === 'asistencia' ? "Pase de Lista" : "Reportar Incidencia"}>
-        <form onSubmit={handleAction} className="space-y-4 p-2">
-          <label className="text-sm block">Alumno</label>
-          <select name="studentId" className="w-full p-2 border rounded">
-            {students.map((s: any) => <option key={s.id} value={s.id}>{s.nombre} {s.apellido}</option>)}
-          </select>
-
-          {modal.type === 'asistencia' ? (
-            <select name="estado" className="w-full p-2 border rounded">
-              <option value="Presente">Presente</option>
-              <option value="Ausente">Ausente</option>
-              <option value="Tarde">Tarde</option>
-            </select>
-          ) : (
-            <>
-              <input name="tipo" placeholder="Tipo (Conducta, Académico...)" className="w-full p-2 border rounded" required />
-              <textarea name="descripcion" placeholder="Detalles de la incidencia" className="w-full p-2 border rounded" required />
-            </>
-          )}
-          <Button type="submit" className="w-full">Confirmar</Button>
-        </form>
-      </Modal>
-    </div>
-  );
-}
+import { userService, attendanceService } from '../services/schoolService';
 
 export default function TeachersPage() {
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
+
+  const loadTeachers = async () => {
+    const data = await userService.getAll();
+    setTeachers(data.filter((u: any) => u.role === 'maestro'));
+  };
+
+  useEffect(() => { loadTeachers(); }, []);
+
+  const handleAttendance = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    try {
+      await attendanceService.createTeacher(
+        Number(formData.get('maestroId')),
+        formData.get('estado') as string
+      );
+      alert("Asistencia de maestro registrada");
+      setIsModalOpen(false);
+    } catch (error) {
+      alert("Error al registrar asistencia");
+    }
+  };
+
   return (
-    <ProtectedRoute allowedRoles={['maestro', 'administrador']}>
-      <AppLayout><TeachersContent /></AppLayout>
-    </ProtectedRoute>
+    <AppLayout>
+      <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
+        <h2 className="text-2xl font-bold text-gray-800">Panel de Docentes</h2>
+        
+        <Table 
+          columns={[
+            { key: 'name', header: 'Nombre del Maestro' },
+            { key: 'email', header: 'Correo Electrónico' },
+            { 
+              key: 'actions', 
+              header: 'Asistencia', 
+              render: (r: any) => (
+                <Button onClick={() => { setSelectedTeacher(r); setIsModalOpen(true); }}>
+                  Pasar Lista
+                </Button>
+              )
+            }
+          ]} 
+          data={teachers} 
+        />
+      </div>
+
+      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Asistencia: ${selectedTeacher?.name}`}>
+        <form onSubmit={handleAttendance} className="p-4 space-y-4">
+          <input type="hidden" name="maestroId" value={selectedTeacher?.id} />
+          <Select 
+            label="Estado de Asistencia" 
+            name="estado" 
+            required 
+            options={[
+              { label: 'Presente', value: 'Presente' },
+              { label: 'Tarde', value: 'Tarde' },
+              { label: 'Ausente', value: 'Ausente' },
+              { label: 'Justificado', value: 'Justificado' }
+            ]}
+          />
+          <Button type="submit" className="w-full">Confirmar Asistencia</Button>
+        </form>
+      </Modal>
+    </AppLayout>
   );
 }
