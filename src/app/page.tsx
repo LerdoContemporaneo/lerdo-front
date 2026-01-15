@@ -4,60 +4,68 @@ import { useRouter } from 'next/navigation';
 import { Card } from './components/ui/card';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
-import { userService, studentService, reportService, gradeService } from './services/schoolService';
+import { 
+  userService, studentService, reportService, gradeService, incidentService, attendanceService 
+} from './services/schoolService';
 
 export default function HomePage() {
   const router = useRouter();
-  const [stats, setStats] = useState({ maestros: 0, alumnos: 0, reportes: 0, grupos: 0 });
+  const [stats, setStats] = useState({ 
+    maestros: 0, alumnos: 0, reportes: 0, grupos: 0, incidencias: 0, asistencias: 0 
+  });
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const [u, s, r, g] = await Promise.all([
+        const [u, s, r, g, i, a] = await Promise.all([
           userService.getAll(),
           studentService.getAll(),
           reportService.getAll(),
-          gradeService.getAll()
+          gradeService.getAll(),
+          incidentService.getAll(),
+          attendanceService.getAll()
         ]);
         setStats({
           maestros: u.filter((x: any) => x.role === 'maestro').length,
           alumnos: s.length,
           reportes: r.length,
-          grupos: g.length
+          grupos: g.length,
+          incidencias: i.length,
+          asistencias: a.length
         });
-      } catch (e) { console.error("Error al cargar stats"); }
+      } catch (e) { console.error("Error cargando stats", e); }
     };
     loadStats();
   }, []);
 
-  const statCards = [
-    { title: "Docentes", value: stats.maestros, path: "/admin", color: "text-blue-600" },
-    { title: "Alumnos", value: stats.alumnos, path: "/students", color: "text-green-600" },
-    { title: "Grupos", value: stats.grupos, path: "/groups", color: "text-purple-600" },
-    { title: "Reportes", value: stats.reportes, path: "/reports", color: "text-red-600" },
+  const cards = [
+    { title: "Alumnos", val: stats.alumnos, path: "/students", color: "text-blue-600" },
+    { title: "Docentes", val: stats.maestros, path: "/admin", color: "text-indigo-600" },
+    { title: "Grupos", val: stats.grupos, path: "/groups", color: "text-purple-600" },
+    { title: "Reportes", val: stats.reportes, path: "/reports", color: "text-orange-600" },
+    { title: "Incidencias", val: stats.incidencias, path: "/incidents", color: "text-red-600" },
+    { title: "Asistencia Alumnos", val: stats.asistencias, path: "/attendance", color: "text-green-600" },
   ];
 
   return (
     <ProtectedRoute>
       <AppLayout>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {statCards.map((card) => (
-            <div 
-              key={card.title}
-              onClick={() => router.push(card.path)} 
-              className="cursor-pointer transform hover:scale-105 transition-all"
-            >
-              <Card title={card.title}>
-                <div className={`text-4xl font-bold ${card.color}`}>{card.value}</div>
-                <p className="text-xs text-gray-400 mt-1">Click para ver detalle</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {cards.map((c) => (
+            <div key={c.title} onClick={() => router.push(c.path)} className="cursor-pointer hover:scale-105 transition-all">
+              <Card title={c.title}>
+                <div className={`text-4xl font-bold ${c.color}`}>{c.val}</div>
+                <p className="text-xs text-gray-400 mt-2">Ver detalles &rarr;</p>
               </Card>
             </div>
           ))}
-        </div>
-
-        <div className="mt-10 p-6 bg-blue-50 rounded-xl border border-blue-100">
-            <h3 className="font-semibold text-blue-800">Acceso Rápido</h3>
-            <p className="text-sm text-blue-600">Bienvenido al panel de control CELC. Utiliza las tarjetas superiores para navegar.</p>
+          {/* Tarjeta extra para asistencia de maestros (solo Admin) */}
+          <div onClick={() => router.push('/teacher-attendance')} className="cursor-pointer hover:scale-105 transition-all">
+             <Card title="Asistencia Docente">
+                <div className="text-4xl font-bold text-gray-600">Ir</div>
+                <p className="text-xs text-gray-400 mt-2">Control Administrativo</p>
+             </Card>
+          </div>
         </div>
       </AppLayout>
     </ProtectedRoute>

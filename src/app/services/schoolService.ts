@@ -5,20 +5,18 @@ const fetchConfig = {
   headers: { 'Content-Type': 'application/json' },
 };
 
-// Función auxiliar para asegurar que siempre devolvemos un array
 const ensureArray = (result: any) => {
   if (Array.isArray(result)) return result;
   if (result && Array.isArray(result.data)) return result.data;
   return [];
 };
 
-// --- USUARIOS (Admin/Maestros) ---
+// --- USUARIOS ---
 export const userService = {
   getAll: async () => {
     try {
       const res = await fetch(`${BASE_URL}/users`, fetchConfig);
-      const result = await res.json();
-      return ensureArray(result);
+      return ensureArray(await res.json());
     } catch (e) { return []; }
   },
   create: async (data: any) => {
@@ -26,6 +24,8 @@ export const userService = {
     return res.json();
   },
   delete: async (id: number) => {
+    // UserRoute usa verifyUser y espera ID en URL o Body? 
+    // Asumiendo URL por estándar REST, pero si falla, revisamos controlador.
     const res = await fetch(`${BASE_URL}/users/${id}`, { ...fetchConfig, method: 'DELETE' });
     return res.json();
   }
@@ -36,14 +36,14 @@ export const studentService = {
   getAll: async () => {
     try {
       const res = await fetch(`${BASE_URL}/alumnos`, fetchConfig);
-      const result = await res.json();
-      return ensureArray(result);
+      return ensureArray(await res.json());
     } catch (e) { return []; }
   },
   create: async (data: any) => {
     const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
   },
+  // AlumnoRoute: deleteAlumnos (Body)
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
     return res.json();
@@ -55,53 +55,100 @@ export const gradeService = {
   getAll: async () => {
     try {
       const res = await fetch(`${BASE_URL}/grados`, fetchConfig);
-      const result = await res.json();
-      return ensureArray(result);
+      return ensureArray(await res.json());
     } catch (e) { return []; }
   },
   create: async (data: any) => {
     const res = await fetch(`${BASE_URL}/grados`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
   },
+  // GradosRoute: deleteGrados (Body)
   delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/grados/${id}`, { ...fetchConfig, method: 'DELETE' });
+    const res = await fetch(`${BASE_URL}/grados`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
     return res.json();
   }
 };
 
-// --- ASISTENCIAS ---
-export const attendanceService = {
-  createStudent: async (alumnoId: number, estado: string) => {
-    const res = await fetch(`${BASE_URL}/asistencia`, { ...fetchConfig, method: 'POST', body: JSON.stringify({ alumnoId, estado }) });
-    return res.json();
-  },
-  createTeacher: async (maestroId: number, estado: string) => {
-    const res = await fetch(`${BASE_URL}/asistencia-maestro`, { ...fetchConfig, method: 'POST', body: JSON.stringify({ maestroId, estado }) });
-    return res.json();
-  }
-};
-
-// --- REPORTES e INCIDENCIAS ---
-export const reportService = {
-  getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/reportes`, fetchConfig);
-      const result = await res.json();
-      return ensureArray(result);
-    } catch (e) { return []; }
-  }
-};
-
+// --- INCIDENCIAS ---
 export const incidentService = {
   getAll: async () => {
     try {
       const res = await fetch(`${BASE_URL}/incidencias`, fetchConfig);
-      const result = await res.json();
-      return ensureArray(result);
+      return ensureArray(await res.json());
     } catch (e) { return []; }
   },
   create: async (data: any) => {
     const res = await fetch(`${BASE_URL}/incidencias`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
+  },
+  // IncidenciasRoute: deleteIncidencias (Body)
+  delete: async (id: number) => {
+    const res = await fetch(`${BASE_URL}/incidencias`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
+    return res.json();
+  }
+};
+
+// --- ASISTENCIA ALUMNOS ---
+export const attendanceService = {
+  getAll: async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/asistencia`, fetchConfig);
+      return ensureArray(await res.json());
+    } catch (e) { return []; }
+  },
+  create: async (alumnoId: number, estado: string) => {
+    const res = await fetch(`${BASE_URL}/asistencia`, { 
+      ...fetchConfig, 
+      method: 'POST', 
+      body: JSON.stringify({ alumnoId, estado }) 
+    });
+    return res.json();
+  },
+  // AsistenciaRoute: deleteAsistencia (Body)
+  delete: async (id: number) => {
+    const res = await fetch(`${BASE_URL}/asistencia`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
+    return res.json();
+  }
+};
+
+// --- ASISTENCIA MAESTROS ---
+export const teacherAttendanceService = {
+  getAll: async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/asistencia-maestro`, fetchConfig);
+      return ensureArray(await res.json());
+    } catch (e) { return []; }
+  },
+  create: async (maestroId: number, estado: string) => {
+    const res = await fetch(`${BASE_URL}/asistencia-maestro`, { 
+      ...fetchConfig, 
+      method: 'POST', 
+      body: JSON.stringify({ maestroId, estado }) 
+    });
+    return res.json();
+  },
+  // AsistenciaMaestroRoute: router.delete("/:id") (URL PARAM)
+  delete: async (id: number) => {
+    const res = await fetch(`${BASE_URL}/asistencia-maestro/${id}`, { ...fetchConfig, method: 'DELETE' });
+    return res.json();
+  }
+};
+
+// --- REPORTES ---
+export const reportService = {
+  getAll: async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/reportes`, fetchConfig);
+      return ensureArray(await res.json());
+    } catch (e) { return []; }
+  },
+  // create/delete por si acaso
+  create: async (data: any) => {
+      const res = await fetch(`${BASE_URL}/reportes`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
+      return res.json();
+  },
+  delete: async (id: number) => {
+      const res = await fetch(`${BASE_URL}/reportes`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
+      return res.json();
   }
 };
