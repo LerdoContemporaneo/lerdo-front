@@ -24,8 +24,6 @@ export const userService = {
     return res.json();
   },
   delete: async (id: number) => {
-    // UserRoute usa verifyUser y espera ID en URL o Body? 
-    // Asumiendo URL por estándar REST, pero si falla, revisamos controlador.
     const res = await fetch(`${BASE_URL}/users/${id}`, { ...fetchConfig, method: 'DELETE' });
     return res.json();
   }
@@ -43,7 +41,6 @@ export const studentService = {
     const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
   },
-  // AlumnoRoute: deleteAlumnos (Body)
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
     return res.json();
@@ -62,7 +59,6 @@ export const gradeService = {
     const res = await fetch(`${BASE_URL}/grados`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
   },
-  // GradosRoute: deleteGrados (Body)
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/grados`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
     return res.json();
@@ -81,7 +77,6 @@ export const incidentService = {
     const res = await fetch(`${BASE_URL}/incidencias`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
   },
-  // IncidenciasRoute: deleteIncidencias (Body)
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/incidencias`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
     return res.json();
@@ -96,7 +91,8 @@ export const attendanceService = {
       return ensureArray(await res.json());
     } catch (e) { return []; }
   },
-  create: async (alumnoId: number, estado: string) => {
+  // CORRECCIÓN AQUÍ: Renombrado de 'create' a 'createStudent'
+  createStudent: async (alumnoId: number, estado: string) => {
     const res = await fetch(`${BASE_URL}/asistencia`, { 
       ...fetchConfig, 
       method: 'POST', 
@@ -104,7 +100,6 @@ export const attendanceService = {
     });
     return res.json();
   },
-  // AsistenciaRoute: deleteAsistencia (Body)
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/asistencia`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
     return res.json();
@@ -119,7 +114,8 @@ export const teacherAttendanceService = {
       return ensureArray(await res.json());
     } catch (e) { return []; }
   },
-  create: async (maestroId: number, estado: string) => {
+  // CORRECCIÓN AQUÍ: Renombrado de 'create' a 'createTeacher' (por si acaso)
+  createTeacher: async (maestroId: number, estado: string) => {
     const res = await fetch(`${BASE_URL}/asistencia-maestro`, { 
       ...fetchConfig, 
       method: 'POST', 
@@ -127,7 +123,6 @@ export const teacherAttendanceService = {
     });
     return res.json();
   },
-  // AsistenciaMaestroRoute: router.delete("/:id") (URL PARAM)
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/asistencia-maestro/${id}`, { ...fetchConfig, method: 'DELETE' });
     return res.json();
@@ -142,7 +137,6 @@ export const reportService = {
       return ensureArray(await res.json());
     } catch (e) { return []; }
   },
-  // create/delete por si acaso
   create: async (data: any) => {
       const res = await fetch(`${BASE_URL}/reportes`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
       return res.json();
