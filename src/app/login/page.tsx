@@ -1,193 +1,14 @@
-// //esta opcion me la sugirio la ia fusionanado ambos codigos sin mucho contexto 🤭
-
-// 'use client';
-// import React, { useState } from 'react';
-// import { useRouter } from 'next/navigation';
-// import { useAuth } from '../hooks/useAuth';
-// import Button from '../components/ui/Button';
-// import { Input } from '../components/ui/Input';
-
-// const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-// export default function LoginPage() {
-//   const { login } = useAuth();
-//   const router = useRouter();
-//   const [email, setEmail] = useState('');
-//   const [password, setPassword] = useState('');
-//   const [error, setError] = useState('');
-
-//   async function handleSubmit(e: React.FormEvent) {
-//     e.preventDefault();
-//     setError('');
-
-//     try {
-//       const res = await fetch(`${BASE_URL}/login`, {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         credentials: "include", // Para cookies de express-session
-//         body: JSON.stringify({ email, password }),
-//       });
-
-//       if (!res.ok) {
-//         const errorData = await res.json().catch(() => null);
-//         setError(errorData?.message || 'Error al iniciar sesión');
-//         return;
-//       }
-
-//       const data = await res.json();
-//       console.log("Sesión iniciada:", data);
-      
-//       // Si tu hook useAuth necesita actualizarse con la respuesta
-//       const ok = await login(email, password);
-      
-//       if (ok) {
-//         // Redirigir basado en el rol del usuario o respuesta del backend
-//         // Puedes ajustar esto según la respuesta de tu API
-//         if (data.user?.role === 'admin' || email === 'admin') {
-//           router.push('/admin');
-//         } else {
-//           router.push('/teachers');
-//         }
-//       }
-      
-//     } catch (err) {
-//       console.error("Error de conexión:", err);
-//       setError('Error de conexión con el servidor');
-//     }
-//   }
-
-//   return (
-//     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-//       <div className="bg-white p-6 rounded-lg shadow w-full max-w-sm">
-//         <h1 className="text-2xl font-semibold mb-4 text-center">Iniciar Sesión</h1>
-//         <form onSubmit={handleSubmit} className="space-y-4">
-//           <Input 
-//             label="Email" 
-//             type="email"
-//             value={email} 
-//             onChange={(e) => setEmail(e.target.value)} 
-//             required
-//           />
-//           <Input 
-//             label="Contraseña" 
-//             type="password" 
-//             value={password} 
-//             onChange={(e) => setPassword(e.target.value)} 
-//             required
-//           />
-//           {error && <p className="text-sm text-red-600">{error}</p>}
-//           <Button type="submit" className="w-full">Entrar</Button>
-//         </form>
-//         <div className="text-xs text-gray-500 mt-4 text-center">
-//           {/* <p>Admin → admin@example.com / admin123</p>
-//           <p>Maestro → maestro@example.com / maestro123</p> */}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// // pirmera version sin json
-
-// // 'use client';
-// // import React, { useState } from 'react';
-// // import { useRouter } from 'next/navigation';
-// // import { useAuth } from '../hooks/useAuth';
-// // import Button from '../components/ui/Button';
-// // import { Input } from '../components/ui/Input';
-
-
-// // export default function LoginPage() {
-// // const { login } = useAuth();
-// // const router = useRouter();
-// // const [username, setUsername] = useState('');
-// // const [password, setPassword] = useState('');
-// // const [error, setError] = useState('');
-
-// // async function handleSubmit(e: React.FormEvent) {
-// // e.preventDefault();
-// // const ok = await login(username, password);
-// // if (ok) {
-// // if (username === 'admin') router.push('/admin');
-// // else router.push('/teachers');
-// // } else {
-// // setError('Credenciales incorrectas');
-// // }
-// // }
-// // return (
-// // <div className="min-h-screen flex items-center justify-center bg-gray-100">
-// // <div className="bg-white p-6 rounded-lg shadow w-full max-w-sm">
-// // <h1 className="text-2xl font-semibold mb-4 text-center">Iniciar Sesión</h1>
-// // <form onSubmit={handleSubmit} className="space-y-4">
-// // <Input label="Usuario" value={username} onChange={(e) => setUsername(e.target.value)} />
-// // <Input label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-// // {error && <p className="text-sm text-red-600">{error}</p>}
-// // <Button type="submit" className="w-full">Entrar</Button>
-// // </form>
-// // <div className="text-xs text-gray-500 mt-4 text-center">
-// // {/* <p>Admin → admin / admin123</p>
-// // <p>Maestro → maestro / maestro123</p> */}
-// // </div>
-// // </div>
-// // </div>
-// // );
-// // }
-
-// // codigo de referencia para el login con fetch y json
-
-// // "use client";
-
-// // import { useState } from "react";
-
-// // const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-// // export default function LoginForm() {
-// //   const [email, setEmail] = useState("");
-// //   const [password, setPassword] = useState("");
-
-// //   const handleSubmit = async (e: React.FormEvent) => {
-// //     e.preventDefault();
-
-// //     const res = await fetch(`${BASE_URL}/login`, {
-// //       method: "POST",
-// //       headers: { "Content-Type": "application/json" },
-// //       credentials: "include",
-// //  cookies de express-session
-// //       body: JSON.stringify({ email, password }),
-// //     });
-
-// //     if (!res.ok) {
-// //       console.error("Error al iniciar sesión");
-// //       return;
-// //     }
-
-// //     const data = await res.json();
-// //     console.log("Sesión iniciada:", data);
-// //   };
-
-// //   return (
-// //     <form onSubmit={handleSubmit}>
-// //       {/* inputs de email y password */}
-// //     </form>
-// //   );
-// // }
-
-
-
+// src/app/page.tsx
 'use client';
-
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-import { useAuthContext } from '../context/AuthContext'; 
-
-
+import { useAuth } from '../hooks/useAuth'; 
 import Button from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import Image from 'next/image'; // Importamos Image de Next.js para el logo
 
 export default function LoginPage() {
-
-  const { login } = useAuthContext(); 
+  const { login } = useAuth();
   const router = useRouter();
   
   const [email, setEmail] = useState('');
@@ -200,51 +21,96 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-   
     const success = await login(email, password);
 
     if (success) {
- 
-      console.log("Login exitoso, redirigiendo...");
-      
-     
-      if (email === 'admin' || email.includes('admin')) {
+      // Redirección simple por ahora, ya que no hay backend real activo
+      if (email.includes('admin')) {
          router.push('/admin');
       } else {
          router.push('/teachers');
       }
     } else {
-      setError('Credenciales incorrectas o error de conexión');
+      setError('Credenciales incorrectas. ¿Quizás Mapi escondió tu contraseña? 🦝');
     }
     setLoading(false);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded-lg shadow w-full max-w-sm">
-        <h1 className="text-2xl font-semibold mb-4 text-center">Iniciar Sesión</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    // FONDO: Usamos un degradado rojo oscuro (red-900 a red-800) para dar identidad
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-900 to-red-800 px-4">
+      
+      {/* Contenedor del Logo y Título */}
+      <div className="mb-8 text-center">
+        {/* Asegúrate de poner tu logo en la carpeta public como 'logo.png' */}
+        <div className="bg-white p-3 rounded-full inline-block shadow-lg mb-4">
+            {/* Si aún no tienes la imagen, esto mostrará un cuadro gris, pero está listo para tu logo */}
+            <Image src="/logo.png" alt="Logo CELC" width={80} height={80} className="object-contain" />
+            {/* <span className="text-4xl">🎓</span>  */}
+        </div>
+        <h1 className="text-3xl font-bold text-white tracking-wide">
+          Lerdo Contemporáneo
+        </h1>
+        <p className="text-red-100 mt-2 text-sm font-light">
+          Portal Escolar
+        </p>
+      </div>
+
+      {/* Tarjeta de Login */}
+      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-t-4 border-red-600">
+        <div className="flex justify-center mb-6">
+            <span className="text-5xl" title="Mapi te saluda">🦝</span>
+        </div>
+        
+        <h2 className="text-xl font-semibold mb-6 text-center text-gray-800">
+          Bienvenido de nuevo
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <Input 
-            label="Email" 
+            label="Correo Institucional" 
             type="email"
+            placeholder="usuario@lerdocontemporaneo.edu.mx"
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required
+            // Aquí podrías pasar clases extra a tu Input si soporta className
+            className="focus-within:ring-red-500" 
           />
           <Input 
             label="Contraseña" 
             type="password" 
+            placeholder="••••••••"
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
             required
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
           
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
+          {error && (
+            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md border border-red-100 flex items-center gap-2">
+              ⚠️ {error}
+            </div>
+          )}
+
+          <Button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-red-900 hover:bg-red-800 text-white py-3 rounded-lg font-bold transition-all transform active:scale-95 shadow-md"
+          >
+            {loading ? 'Validando...' : 'Iniciar Sesión'}
           </Button>
         </form>
+
+        <div className="mt-6 text-center">
+            <a href="#" className="text-sm text-red-800 hover:text-red-600 font-medium">
+                ¿Olvidaste tu contraseña?
+            </a>
+        </div>
       </div>
+
+      <footer className="mt-8 text-red-200 text-xs">
+        © {new Date().getFullYear()} Centro de Estudios Lerdo Contemporáneo
+      </footer>
     </div>
   );
 }
