@@ -20,9 +20,22 @@ export const userService = {
     } catch (e) { return []; }
   },
   create: async (data: any) => {
-    const res = await fetch(`${BASE_URL}/users`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
+    const res = await fetch(`${BASE_URL}/users`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Error creando usuario");
     return res.json();
   },
+  
+  update: async (id: number, data: any) => {
+    const res = await fetch(`${BASE_URL}/users/${id}`, { 
+        ...fetchConfig, 
+        method: 'PATCH', 
+        body: JSON.stringify(data) 
+    });
+    if (!res.ok) throw new Error("Error actualizando usuario");
+    return res.json();
+  },
+
   delete: async (id: number) => {
     const res = await fetch(`${BASE_URL}/users/${id}`, { ...fetchConfig, method: 'DELETE' });
     return res.json();
@@ -157,6 +170,15 @@ export const homeworkService = {
   },
   create: async (data: any) => {
       const res = await fetch(`${BASE_URL}/tareas`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
+      return res.json();
+  },
+  update: async (uuid: string, data: any) => { // Tareas usa UUID o ID según tu base
+      const res = await fetch(`${BASE_URL}/tareas/${uuid}`, {
+          ...fetchConfig,
+          method: 'PATCH',
+          body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Error actualizando tarea");
       return res.json();
   },
   delete: async (id: number) => {

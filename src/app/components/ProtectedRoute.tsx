@@ -1,22 +1,37 @@
 'use client';
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
+export default function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) {
+  // 1. Extrae 'loading' además del usuario
+  const { user, loading } = useAuth(); 
+  const router = useRouter();
 
-export default function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) 
-{
-    const { user } = useAuth();
-    const router = useRouter();
+  useEffect(() => {
+    // 2. Si estamos cargando, NO hacemos nada todavía. Esperamos.
+    if (!loading) {
+        if (!user) {
+            router.push('/'); // Si cargó y no hay usuario -> Login
+        } else if (allowedRoles && !allowedRoles.includes(user.role)) {
+            router.push('/unauthorized'); // Rol incorrecto
+        }
+    }
+  }, [user, loading, router, allowedRoles]);
 
+  // 3. Mientras carga, mostramos una pantalla de espera bonita (Spinner o Logo)
+  if (loading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="animate-pulse text-red-900 font-bold text-xl">
+                Cargando Mapi... 🦝
+            </div>
+        </div>
+    );
+  }
 
-    useEffect(() => {
-    if (!user) router.push('/login');
-    else if (allowedRoles && !allowedRoles.includes(user.role)) router.push('/');
-    }, [user, router, allowedRoles]);
+  // 4. Si ya cargó y no hay usuario, retornamos null para evitar "flicks" antes del redirect
+  if (!user) return null; 
 
-
-    if (!user) return null; // podría mostrar spinner
-    return <>{children}</>;
+  return <>{children}</>;
 }
-
