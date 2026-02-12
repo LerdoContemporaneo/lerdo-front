@@ -5,25 +5,27 @@ import { Card } from './components/ui/card';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
 import { 
-  userService, studentService, reportService, gradeService, incidentService, attendanceService 
+  userService, studentService, reportService, gradeService, incidentService, attendanceService, homeworkService
 } from './services/schoolService';
 
 export default function HomePage() {
   const router = useRouter();
   const [stats, setStats] = useState({ 
-    maestros: 0, alumnos: 0, reportes: 0, grupos: 0, incidencias: 0, asistencias: 0 
+    maestros: 0, alumnos: 0, reportes: 0, grupos: 0, incidencias: 0, asistencias: 0, tareas: 0
   });
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const [u, s, r, g, i, a] = await Promise.all([
+        const [u, s, r, g, i, a, h] = await Promise.all([
           userService.getAll(),
           studentService.getAll(),
           reportService.getAll(),
           gradeService.getAll(),
           incidentService.getAll(),
-          attendanceService.getAll()
+          attendanceService.getAll(),
+          homeworkService.getAll()
+          
         ]);
         setStats({
           maestros: u.filter((x: any) => x.role === 'maestro').length,
@@ -31,7 +33,9 @@ export default function HomePage() {
           reportes: r.length,
           grupos: g.length,
           incidencias: i.length,
-          asistencias: a.length
+          asistencias: a.length,
+          tareas: h.length
+          
         });
       } catch (e) { console.error("Error cargando stats", e); }
     };
@@ -45,6 +49,7 @@ export default function HomePage() {
     { title: "Reportes", val: stats.reportes, path: "/reports", color: "text-orange-600" },
     { title: "Incidencias", val: stats.incidencias, path: "/incidents", color: "text-red-600" },
     { title: "Asistencia Alumnos", val: stats.asistencias, path: "/attendance", color: "text-green-600" },
+    { title: "Tareas", val: stats.tareas, path: "/homeworks", color: "text-yellow-600" },
   ];
 
   return (

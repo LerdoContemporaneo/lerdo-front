@@ -1,5 +1,6 @@
-// export type ID = string;
+//esto tipos ya no se usan se puede eliminar
 
+// export type ID = string;
 
 // export interface Teacher {
 // id: ID;

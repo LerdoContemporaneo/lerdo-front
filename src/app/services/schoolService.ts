@@ -146,3 +146,21 @@ export const reportService = {
       return res.json();
   }
 };
+
+// --- TAREAS ---
+export const homeworkService = {
+  getAll: async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/tareas`, fetchConfig);
+      return ensureArray(await res.json());
+    } catch (e) { return []; }
+  },
+  create: async (data: any) => {
+      const res = await fetch(`${BASE_URL}/tareas`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
+      return res.json();
+  },
+  delete: async (id: number) => {
+      const res = await fetch(`${BASE_URL}/tareas/${id}`, { ...fetchConfig, method: 'DELETE'  });
+      return res.json();
+  }
+};
