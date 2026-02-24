@@ -12,9 +12,9 @@ export default function ProtectedRoute({ children, allowedRoles }: { children: R
     // 2. Si estamos cargando, NO hacemos nada todavía. Esperamos.
     if (!loading) {
         if (!user) {
-            router.push('/'); // Si cargó y no hay usuario -> Login
+            router.push('/login'); // Si cargó y no hay usuario -> Login
         } else if (allowedRoles && !allowedRoles.includes(user.role)) {
-            router.push('/unauthorized'); // Rol incorrecto
+            router.push('/login'); // Rol incorrecto
         }
     }
   }, [user, loading, router, allowedRoles]);

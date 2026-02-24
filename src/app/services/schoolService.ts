@@ -20,24 +20,42 @@ export const userService = {
     } catch (e) { return []; }
   },
   create: async (data: any) => {
-    const res = await fetch(`${BASE_URL}/users`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data)
+    const payload = {
+      ...data,
+      confPassword: data.password
+    };
+    const res = await fetch(`${BASE_URL}/users`, { ...fetchConfig, method: 'POST', body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error("Error creando usuario");
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ }));
+      throw new Error(errorData.msg || "Error creando usuario");
+    }
     return res.json();
   },
   
-  update: async (id: number, data: any) => {
-    const res = await fetch(`${BASE_URL}/users/${id}`, { 
+update: async (uuid: string, data: any) => { 
+    const payload = {
+      ...data,
+      confPassword: data.password || "" 
+    };
+
+    const res = await fetch(`${BASE_URL}/users/${uuid}`, { 
         ...fetchConfig, 
         method: 'PATCH', 
-        body: JSON.stringify(data) 
+        body: JSON.stringify(payload) 
     });
-    if (!res.ok) throw new Error("Error actualizando usuario");
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.msg || "Error actualizando usuario");
+    }
     return res.json();
   },
-
-  delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/users/${id}`, { ...fetchConfig, method: 'DELETE' });
+delete: async (uuid: string) => { 
+    const res = await fetch(`${BASE_URL}/users/${uuid}`, { 
+      ...fetchConfig, 
+      method: 'DELETE' 
+    });
     return res.json();
   }
 };
@@ -54,10 +72,22 @@ export const studentService = {
     const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
     return res.json();
   },
-  delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
+  update: async (uuid: string, data: any) => {
+    const res = await fetch(`${BASE_URL}/alumnos/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH', // Tu backend usa PATCH según vimos en updateAlumnos
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Error al actualizar el alumno");
     return res.json();
-  }
+  },
+  delete: async (uuid: string) => {
+  const res = await fetch(`${BASE_URL}/alumnos/${uuid}`, { 
+    ...fetchConfig, 
+    method: 'DELETE' 
+  });
+  return res.json();
+}
 };
 
 // --- GRUPOS (GRADOS) ---

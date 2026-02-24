@@ -39,6 +39,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link href="/teachers" className="px-3 py-1.5 text-sm rounded-md hover:bg-red-700 transition-colors">
                     Maestros
                 </Link>
+                <Link href="/alumnos" className="px-3 py-1.5 text-sm rounded-md hover:bg-red-700 transition-colors">
+                    Alumnos
+                </Link>
             </div>
 
             <div className="h-6 w-px bg-red-700 mx-1 hidden md:block"></div>

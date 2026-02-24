@@ -45,9 +45,9 @@ export default function HomePage() {
   }, []);
 
   const cards = [
-    { title: "Alumnos", val: stats.alumnos, path: "/students", color: "text-blue-600" },
+    { title: "Alumnos", val: stats.alumnos, path: "/alumnos", color: "text-blue-600" },
     { title: "Docentes", val: stats.maestros, path: "/admin", color: "text-indigo-600" },
-    { title: "Grupos", val: stats.grupos, path: "/groups", color: "text-purple-600" },
+    { title: "Grupos", val: stats.grupos, path: "/grupos", color: "text-purple-600" },
     { title: "Reportes", val: stats.reportes, path: "/reports", color: "text-orange-600" },
     { title: "Incidencias", val: stats.incidencias, path: "/incidents", color: "text-red-600" },
     { title: "Asistencia Alumnos", val: stats.asistencias, path: "/attendance", color: "text-green-600" },

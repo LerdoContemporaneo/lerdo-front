@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import AppLayout from '../components/AppLayout';
-import { Table } from '../components/ui/Table'; // Asegúrate que tu componente Table soporte render personalizado
+import { Table } from '../components/ui/Table'; 
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import Button from '../components/ui/Button';
@@ -34,40 +34,41 @@ export default function AdminPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+const handleDelete = async (uuid: string) => { 
     if(!confirm("¿Estás seguro de eliminar este usuario?")) return;
-    await userService.delete(id);
-    loadUsers();
-  };
+    try {
+        await userService.delete(uuid); 
+        alert("Usuario eliminado correctamente 🗑️");
+        loadUsers();
+    } catch (error) {
+        alert("Error al eliminar el usuario");
+    }
+};
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
     
-    // Convertimos FormData a objeto JSON limpio
+    const password = formData.get('password') as string;
+
     const payload: any = {
         name: formData.get('name'),
         email: formData.get('email'),
-        role: formData.get('role'),
+        role: formData.get('role'),       
+        password: password || "",
+        confPassword: password || "" 
     };
-
-    // Solo enviamos password si se escribió algo (en edición es opcional)
-    const password = formData.get('password');
-    if (password) {
-        payload.password = password;
-    }
 
     try {
         if (editingUser) {
-            // MODO EDICIÓN
-            await userService.update(editingUser.id, payload);
+            // Pasamos el payload que ya incluye confPassword
+            await userService.update(editingUser.uuid, payload);
             alert("Usuario actualizado correctamente 🐧");
         } else {
             // MODO CREACIÓN
-            // Validación extra: password obligatorio al crear
             if (!password) {
-                alert("La contraseña es obligatoria para nuevos usuarios");
+                alert("La contraseña es obligatoria");
                 setLoading(false);
                 return;
             }
@@ -76,13 +77,12 @@ export default function AdminPage() {
         }
         setIsModalOpen(false);
         loadUsers();
-    } catch (error) {
-        console.error(error);
-        alert("Hubo un error al guardar.");
+    } catch (error: any) {
+        alert(error.message || "Error al guardar");
     } finally {
         setLoading(false);
     }
-  };
+};
 
   return (
     <ProtectedRoute allowedRoles={['administrador']}>
@@ -116,7 +116,7 @@ export default function AdminPage() {
                             <Button 
                                 variant="danger" 
                                 className="text-xs py-1 px-2 bg-red-50 text-red-700 hover:bg-red-100" 
-                                onClick={() => handleDelete(r.id)}
+                                onClick={() => handleDelete(r.uuid)}
                             >
                                 Eliminar
                             </Button>
