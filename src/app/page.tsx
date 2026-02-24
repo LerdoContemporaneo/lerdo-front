@@ -7,12 +7,14 @@ import AppLayout from './components/AppLayout';
 import { 
   userService, studentService, reportService, gradeService, incidentService, attendanceService, homeworkService
 } from './services/schoolService';
+import { useAuth } from './hooks/useAuth';
 
 export default function HomePage() {
   const router = useRouter();
   const [stats, setStats] = useState({ 
     maestros: 0, alumnos: 0, reportes: 0, grupos: 0, incidencias: 0, asistencias: 0, tareas: 0
   });
+    const { user } = useAuth();
 
   useEffect(() => {
     const loadStats = async () => {
@@ -53,7 +55,7 @@ export default function HomePage() {
   ];
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={['administrador', 'maestro', 'alumno']}>
       <AppLayout>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards.map((c) => (
@@ -65,12 +67,14 @@ export default function HomePage() {
             </div>
           ))}
           {/* Tarjeta extra para asistencia de maestros (solo Admin) */}
+          {user?.role === 'administrador' && (
           <div onClick={() => router.push('/teacher-attendance')} className="cursor-pointer hover:scale-105 transition-all">
              <Card title="Asistencia Docente">
                 <div className="text-4xl font-bold text-gray-600">Ir</div>
                 <p className="text-xs text-gray-400 mt-2">Control Administrativo</p>
              </Card>
           </div>
+          )}
         </div>
       </AppLayout>
     </ProtectedRoute>
