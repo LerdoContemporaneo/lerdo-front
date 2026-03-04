@@ -1,19 +1,20 @@
+// context/AuthContext.tsx
 'use client';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { loginApi, checkMeApi } from '../services/authService';
+// Importamos tambien logoutApi
+import { loginApi, checkMeApi, logoutApi } from '../services/authService';
 
-// Definición de tipos
 export interface UserData {
     uuid: string;
     name: string;
     email: string;
-    role: 'administrador' | 'maestro' | 'alumno'; // Asegúrate de que coincida con tu BD
+    role: 'administrador' | 'maestro' | 'alumno';
 }
 
 interface AuthContextType {
     user: UserData | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<boolean>; // Devuelve true/false
+    login: (email: string, password: string) => Promise<boolean>;
     logout: () => Promise<void>;
 }
 
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const userData = await checkMeApi();
             if (userData) {
-                // @ts-ignore - Forzamos el tipo si la respuesta difiere ligeramente
+                // @ts-ignore
                 setUser(userData);
             }
         } catch (error) {
@@ -54,9 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
+    // 👇 LOGOUT CORREGIDO 👇
     async function logout() {
+        try {
+            // Le avisamos al servidor que destruya la sesión
+            await logoutApi(); 
+        } catch (error) {
+            console.error("Error al cerrar sesión en el servidor", error);
+        }
+        // Borramos al usuario de React
         setUser(null);
-      
+        // Redirigimos al login
         window.location.href = '/login'; 
     }
 
@@ -66,7 +75,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         </AuthContext.Provider>
     );
 }
-
 
 export const useAuthContext = () => {
     const context = useContext(AuthContext);

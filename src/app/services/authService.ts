@@ -9,7 +9,6 @@ interface LoginResponse {
 }
 
 export async function loginApi(email: string, password: string): Promise<LoginResponse> {
-  // Usamos 'fetch' (como en el código de referencia) ya que Axios no está en uso
   const res = await fetch(`${BASE_URL}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -38,5 +37,13 @@ export async function checkMeApi(): Promise<LoginResponse | null> {
     const data: LoginResponse = await res.json();
     return data;
   }
-  return null; // No hay sesión activa
+  return null; 
+}
+
+// 👇 NUEVA FUNCIÓN AGREGADA 👇
+export async function logoutApi(): Promise<void> {
+  await fetch(`${BASE_URL}/logout`, {
+    method: "DELETE", // En tu rest.rest dice que el logout es DELETE
+    credentials: "include", // Importante para enviar la cookie a destruir
+  });
 }
