@@ -161,10 +161,10 @@ export default function TareasPage() {
                 <Input label="Fecha Asignación" name="fechaAsignacion" type="date" defaultValue={editingTarea?.fechaAsignacion?.slice(0, 10)} required />
                 <Input label="Fecha Entrega" name="fechaEntrega" type="date" defaultValue={editingTarea?.fechaEntrega?.slice(0, 10)} required />
             </div>
-
+{/* cambiar selector de alumnos a uno de grupos, y que al seleccionar un grupo se asignen a todos los alumnos de ese grupo */}
             {/* 👈 AQUÍ EL SELECT DE ALUMNOS */}
             <Select 
-                label="Alumno Asignado" 
+                label="Grupo" 
                 name="alumnoId" 
                 required 
                 defaultValue={editingTarea?.alumnoId || ''}

@@ -17,8 +17,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const allNavLinks = [
     { name: 'Dashboard', href: '/', roles: ['administrador', 'maestro', 'alumno'] },
     { name: 'Administración', href: '/admin', roles: ['administrador'] },
-    { name: 'Maestros', href: '/teachers', roles: ['administrador'] },
+    //corregir nombre y logica
+    // { name: 'Maestros', href: '/teachers', roles: ['administrador'] },
     { name: 'Mi Grupo', href: '/teachers', roles: ['maestro'] },
+    { name: 'Grupos', href: '/grupos', roles: ['administrador', 'maestro'] },
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'maestro'] },
     { name: 'Tareas', href: '/tareas', roles: ['administrador', 'maestro', 'alumno'] },
     { name: 'Reportes', href: '/reportes', roles: ['administrador', 'maestro'] },
@@ -31,7 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-900 shadow-lg text-white sticky top-0 z-50">
+      <header className="bg-[#630330] shadow-lg text-white sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           
           {/* Lado Izquierdo: Logo y Nombre */}
