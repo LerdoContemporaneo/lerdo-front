@@ -108,7 +108,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     <AppLayout>
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800">Gestión de Alumnos</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Lista de de Alumnos</h2>
           {isAdmin && (
             <Button onClick={handleOpenCreate} className="bg-red-900 text-white">
               + Nuevo Alumno

@@ -38,7 +38,8 @@ export default function LoginPage() {
 
   return (
     // FONDO: Usamos un degradado rojo oscuro (red-900 a red-800) para dar identidad
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-900 to-red-800 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#630330] to-red-800 px-4">
+
       
       {/* Contenedor del Logo y Título */}
       <div className="mb-8 text-center">
