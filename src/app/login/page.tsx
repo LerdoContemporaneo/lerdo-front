@@ -21,13 +21,19 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const success = await login(email, password);
-// actualizar lógica de redirección según el rol del usuario después del login exitoso, necesitamos que alumnos y maestros vayan a las paginas de la carpeta me, y los administradores a admin
-    if (success) {
-      if (email.includes('admin')) {
+    // Ahora login nos devuelve el success y el rol
+    const response = await login(email, password);
+
+    if (response.success) {
+      // Redirigimos según el rol exacto de la base de datos
+      if (response.role === 'administrador') {
          router.push('/admin');
+      } else if (response.role === 'maestro') {
+         router.push('/me/maestro');
+      } else if (response.role === 'alumno') {
+         router.push('/me/alumno');
       } else {
-         router.push('/teachers');
+         router.push('/'); // Por si acaso hay un rol raro
       }
     } else {
       setError('Credenciales incorrectas. ¿Quizás Mapi escondió tu contraseña? 🦝');

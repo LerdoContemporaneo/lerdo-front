@@ -14,7 +14,7 @@ export interface UserData {
 interface AuthContextType {
     user: UserData | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<{ success: boolean; role?: string }>;
     logout: () => Promise<void>;
 }
 
@@ -43,15 +43,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkSession();
     }, []);
 
-    async function login(email: string, password: string): Promise<boolean> {
+    // 👇 LOGIN CORREGIDO 👇
+    async function login(email: string, password: string): Promise<{ success: boolean; role?: string }> {
         try {
             const userData = await loginApi(email, password);
             // @ts-ignore
             setUser(userData);
-            return true;
+            return { success: true, role: userData.role };
         } catch (error) {
             console.error("Login falló", error);
-            return false;
+            return { success: false };
         }
     }
 
