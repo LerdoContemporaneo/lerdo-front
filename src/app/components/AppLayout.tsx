@@ -17,9 +17,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const allNavLinks = [
     { name: 'Dashboard', href: '/', roles: ['administrador', 'maestro', 'alumno'] },
     { name: 'Administración', href: '/admin', roles: ['administrador'] },
-    //corregir nombre y logica
-    // { name: 'Maestros', href: '/teachers', roles: ['administrador'] },
-    { name: 'Mi Grupo', href: '/teachers', roles: ['maestro'] },
+    //corregir nombre y logica de esta pagina
+    //{ name: 'Maestros', href: '/teachers', roles: ['administrador', 'maestro'] },
+    { name: 'Mi Perfil', href: '/me/alumno', roles: ['alumno'] },
+    { name: 'Mi Grupo', href: '/me/maestro', roles: ['maestro'] },
     { name: 'Grupos', href: '/grupos', roles: ['administrador', 'maestro'] },
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'maestro'] },
     { name: 'Tareas', href: '/tareas', roles: ['administrador', 'maestro', 'alumno'] },
@@ -42,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Image src="/logo.png" alt="Logo CELC" width={24} height={24} className="object-contain" />
             </div>
             <div>
-              <h1 className="text-lg font-bold leading-tight truncate">Control CELC</h1>
+              <h1 className="text-lg font-bold leading-tight truncate">Portal CELC</h1>
               <p className="text-xs text-red-200 capitalize">
                 Panel {user?.role || 'Cargando...'}
               </p>

@@ -22,9 +22,8 @@ export default function LoginPage() {
     setLoading(true);
 
     const success = await login(email, password);
-
+// actualizar lógica de redirección según el rol del usuario después del login exitoso, necesitamos que alumnos y maestros vayan a las paginas de la carpeta me, y los administradores a admin
     if (success) {
-      // Redirección simple por ahora, ya que no hay backend real activo
       if (email.includes('admin')) {
          router.push('/admin');
       } else {
