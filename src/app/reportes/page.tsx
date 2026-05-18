@@ -123,21 +123,30 @@ export default function ReportsPage() {
         {/* Modal para Crear Reporte */}
         <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Crear Nuevo Reporte">
           <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            <Input 
-                label="Título del Reporte" 
+            
+            {/* Opciones predefinidas mágicas, ampliar segun necesidades de los maestros */}
+            <Select 
+                label="Motivo del Reporte" 
                 name="titulo" 
                 required 
-                placeholder="Ej. Comportamiento inadecuado" 
+                options={[
+                    { label: 'Uso inadecuado del celular en clase', value: 'Uso inadecuado del celular en clase' },
+                    { label: 'Uso inadecuado del uniforme o ausencia de este', value: 'Uso inadecuado del uniforme o ausencia de este' },
+                    { label: 'Falta de respeto a un compañero o maestro', value: 'Falta de respeto a un compañero o maestro' },
+                    { label: 'Incumplimiento de tareas', value: 'Incumplimiento de tareas' },
+                    { label: 'Alterar el orden en el aula', value: 'Alterar el orden en el aula' },
+                    { label: 'Llegar tarde', value: 'Llegar tarde' },
+                    { label: 'Otro (Especificar en descripción)', value: 'Reporte de conducta general' } // Opción comodín
+                ]}
             />
             
             <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700">Contenido / Razón</label>
+                <label className="text-sm font-medium text-gray-700">Detalles adicionales (Opcional)</label>
                 <textarea 
                     name="contenido" 
                     className="border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-red-500 outline-none text-sm" 
-                    rows={4} 
-                    required 
-                    placeholder="Describe lo sucedido..."
+                    rows={3} 
+                    placeholder="Agrega notas extra si es necesario..."
                 />
             </div>
 
