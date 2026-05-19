@@ -27,7 +27,7 @@ export default function LoginPage() {
     if (response.success) {
       // Redirigimos según el rol exacto de la base de datos
       if (response.role === 'administrador') {
-         router.push('/admin');
+         router.push('/admin/me');
       } else if (response.role === 'maestro') {
          router.push('/me/maestro');
       } else if (response.role === 'alumno') {
