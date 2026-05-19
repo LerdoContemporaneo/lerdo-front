@@ -29,15 +29,36 @@ export default function MaestroDashboard() {
             {/* Tarjeta 2: Reportes */}
             <Link href="/reportes" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
               <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">⚠️</div>
-              <h2 className="text-xl font-bold text-gray-800">Reportes de Conducta</h2>
-              <p className="text-sm text-gray-500 mt-2">Levanta reportes y mantén el control de la disciplina.</p>
+              <h2 className="text-xl font-bold text-gray-800">Reportes</h2>
+              <p className="text-sm text-gray-500 mt-2">Levanta reportes de conducta de un alumno.</p>
             </Link>
 
             {/* Tarjeta 3: Alumnos */}
             <Link href="/alumnos" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
               <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🎓</div>
               <h2 className="text-xl font-bold text-gray-800">Ver Alumnos</h2>
-              <p className="text-sm text-gray-500 mt-2">Consulta el listado de alumnos y su información general.</p>
+              <p className="text-sm text-gray-500 mt-2">Consulta la información de tus alumnos.</p>
+            </Link>
+
+            {/* Tarjeta 4: Pase de Lista */}
+            <Link href="/me/maestro/pase-de-lista" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
+              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📋</div>
+              <h2 className="text-xl font-bold text-gray-800">Pase de Lista</h2>
+              <p className="text-sm text-gray-500 mt-2">Registra la asistencia de tus alumnos.</p>
+            </Link>
+
+            {/* Tarjeta 5: Horarios */}
+            {/* <Link href="/horarios" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
+              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📅</div>
+              <h2 className="text-xl font-bold text-gray-800">Horarios</h2>
+              <p className="text-sm text-gray-500 mt-2">Consulta tu horario de clases.</p>
+            </Link> */}
+
+            {/* Tarjeta 6: Cambiar Contraseña */}
+            <Link href="/me/maestro/cambiar-contraseña" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
+              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🔒</div>
+              <h2 className="text-xl font-bold text-gray-800">Cambiar Contraseña</h2>
+              <p className="text-sm text-gray-500 mt-2">Actualiza tu contraseña de acceso.</p>
             </Link>
 
           </div>

@@ -6,6 +6,7 @@ import Pagination from '../components/ui/Pagination';
 import Button from '../components/ui/Button';
 import { attendanceService } from '../services/schoolService';
 import { useAuth } from '../hooks/useAuth';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 export default function StudentAttendancePage() {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ export default function StudentAttendancePage() {
   const currentData = records.slice((currentPage - 1) * 8, currentPage * 8);
 
   return (
+  <ProtectedRoute allowedRoles={['administrador', 'maestro']}>
     <AppLayout>
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
         <h2 className="text-2xl font-bold">Historial de Asistencia (Alumnos)</h2>
@@ -46,5 +48,6 @@ export default function StudentAttendancePage() {
         <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </div>
     </AppLayout>
+  </ProtectedRoute>
   );
 }
