@@ -55,7 +55,7 @@ export default function MaestroDashboard() {
             </Link> */}
 
             {/* Tarjeta 6: Cambiar Contraseña */}
-            <Link href="/me/maestro/cambiar-contraseña" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
+            <Link href="../configuracion" className="group block bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-red-300 transition-all">
               <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🔒</div>
               <h2 className="text-xl font-bold text-gray-800">Cambiar Contraseña</h2>
               <p className="text-sm text-gray-500 mt-2">Actualiza tu contraseña de acceso.</p>

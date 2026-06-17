@@ -50,6 +50,10 @@ export default function AdminMePage() {
                   {user?.uuid || 'cargando...'}
                 </p>
               </div>
+              <div>
+                <p className="text-xs text-gray-400 mt-2">Recuerda mantener tu información de cuenta segura. Si necesitas cambiar tu contraseña, ve a la sección de <Link href="/configuracion" className="text-red-600 hover:underline">Configuración</Link>.
+                </p>
+              </div>
             </div>
 
             {/* Accesos Rápidos de Administración */}
