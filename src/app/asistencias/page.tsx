@@ -403,21 +403,21 @@ export default function StudentAttendancePage() {
             comentario: "",
           };
 
-          const payload = {
-            fecha: selectedDate,
-            estado: draft.estado,
-            comentario: draft.comentario.trim() || null,
-            alumnoId: student.id,
-            gradoId: selectedGrade.id,
-          };
+         const payload = {
+  fecha: selectedDate,
+  estado: draft.estado,
+  comentario: draft.comentario.trim(),
+  alumnoId: student.id,
+  gradoId: selectedGrade.id,
+};
 
-          const existingRecord = existingByStudent.get(Number(student.id));
+const existingRecord = existingByStudent.get(Number(student.id));
 
-          if (existingRecord) {
-            return attendanceService.update(existingRecord.id, payload);
-          }
+if (existingRecord) {
+  return attendanceService.update(existingRecord.id, payload);
+}
 
-          return attendanceService.create(payload);
+return attendanceService.create(payload);
         }),
       );
 
