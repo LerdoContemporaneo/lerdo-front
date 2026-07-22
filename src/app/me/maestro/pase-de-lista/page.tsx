@@ -1,116 +1,228 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+
+import { useEffect, useState } from 'react';
 import AppLayout from '../../../components/AppLayout';
 import Button from '../../../components/ui/Button';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import { studentService, attendanceService } from '../../../services/schoolService';
+import {
+  studentService,
+  attendanceService,
+  type AttendanceStatus,
+} from '../../../services/schoolService';
+
+type Alumno = {
+  id: number;
+  nombre: string;
+  apellido: string;
+  matricula: string;
+};
 
 export default function PaseDeListaPage() {
-  const [alumnos, setAlumnos] = useState<any[]>([]);
-  const [asistencias, setAsistencias] = useState<Record<number, string>>({});
+  const [alumnos, setAlumnos] = useState<Alumno[]>([]);
+  const [asistencias, setAsistencias] = useState<
+    Record<number, AttendanceStatus>
+  >({});
   const [loading, setLoading] = useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Cargar los alumnos (idealmente aquí filtraríamos por la materia/grupo del maestro)
-    studentService.getAll().then((data) => {
-      setAlumnos(data);
-      // Por defecto, inicializamos a todos como "Presente"
-      const defaultState: Record<number, string> = {};
-      data.forEach((alumno: any) => {
-        defaultState[alumno.id] = 'Presente';
-      });
-      setAsistencias(defaultState);
-    });
+    const cargarAlumnos = async () => {
+      setLoadingStudents(true);
+      setError('');
+
+      try {
+        const data = await studentService.getAll();
+        const students = Array.isArray(data)
+          ? (data as Alumno[])
+          : [];
+
+        setAlumnos(students);
+
+        const defaultState: Record<number, AttendanceStatus> = {};
+
+        students.forEach((alumno) => {
+          defaultState[alumno.id] = 'Presente';
+        });
+
+        setAsistencias(defaultState);
+      } catch (error) {
+        console.error('Error al cargar alumnos:', error);
+        setError('No fue posible cargar la lista de alumnos.');
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+
+    void cargarAlumnos();
   }, []);
 
-  // Función para cambiar el estado cíclicamente: Presente -> Ausente -> Tarde
   const toggleAsistencia = (id: number) => {
     setAsistencias((prev) => {
-      const currentState = prev[id];
-      let nextState = 'Presente';
-      if (currentState === 'Presente') nextState = 'Ausente';
-      else if (currentState === 'Ausente') nextState = 'Tarde';
-      
-      return { ...prev, [id]: nextState };
+      const currentState = prev[id] ?? 'Presente';
+      let nextState: AttendanceStatus = 'Presente';
+
+      if (currentState === 'Presente') {
+        nextState = 'Ausente';
+      } else if (currentState === 'Ausente') {
+        nextState = 'Tarde';
+      }
+
+      return {
+        ...prev,
+        [id]: nextState,
+      };
     });
   };
 
   const guardarAsistencia = async () => {
+    if (alumnos.length === 0) {
+      alert('No hay alumnos para registrar.');
+      return;
+    }
+
     setLoading(true);
+    setError('');
+
     try {
-      // Enviamos todas las asistencias al backend
-      const promesas = Object.entries(asistencias).map(([alumnoId, estado]) => 
-        attendanceService.createStudent(Number(alumnoId), estado)
+      const promesas = Object.entries(asistencias).map(
+        ([alumnoId, estado]) =>
+          attendanceService.createStudent(
+            Number(alumnoId),
+            estado
+          )
       );
+
       await Promise.all(promesas);
-      alert("¡Pase de lista guardado con éxito! ✅");
+
+      alert('¡Pase de lista guardado con éxito! ✅');
     } catch (error) {
-      alert("Hubo un error al guardar la asistencia.");
+      console.error('Error al guardar la asistencia:', error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Hubo un error al guardar la asistencia.';
+
+      setError(message);
+      alert(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ProtectedRoute allowedRoles={['maestro', 'administrador']}>
+    <ProtectedRoute
+      allowedRoles={['maestro', 'administrador']}
+    >
       <AppLayout>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl mx-auto space-y-6">
+        <div className="mx-auto max-w-3xl space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="text-center md:text-left">
-            <h2 className="text-2xl font-bold text-red-900">Pase de Lista Rápido</h2>
-            <p className="text-gray-500 text-sm mt-1">Todos están presentes por defecto. Toca el botón para cambiar a Ausente o Retardo.</p>
+            <h2 className="text-2xl font-bold text-red-900">
+              Pase de Lista Rápido
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Todos están presentes por defecto. Toca el botón
+              para cambiar a Ausente o Tarde.
+            </p>
           </div>
 
-          <div className="space-y-3">
-            {alumnos.map((alumno) => {
-              const estado = asistencias[alumno.id];
-              
-              // Colores dinámicos del deslizador según el estado
-              const bgClass = 
-                estado === 'Presente' ? 'bg-green-500' : 
-                estado === 'Ausente' ? 'bg-red-500' : 'bg-yellow-500';
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-              const textClass = 
-                estado === 'Presente' ? 'text-green-700' : 
-                estado === 'Ausente' ? 'text-red-700' : 'text-yellow-700';
+          {loadingStudents ? (
+            <p className="py-8 text-center text-gray-500">
+              Cargando alumnos...
+            </p>
+          ) : alumnos.length === 0 ? (
+            <p className="py-8 text-center text-gray-500">
+              No hay alumnos disponibles para pasar lista.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {alumnos.map((alumno) => {
+                const estado =
+                  asistencias[alumno.id] ?? 'Presente';
 
-              return (
-                <div key={alumno.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div>
-                    <p className="font-semibold text-gray-800">{alumno.nombre} {alumno.apellido}</p>
-                    <p className="text-xs text-gray-400">{alumno.matricula}</p>
-                  </div>
+                const bgClass =
+                  estado === 'Presente'
+                    ? 'bg-green-500'
+                    : estado === 'Ausente'
+                      ? 'bg-red-500'
+                      : 'bg-yellow-500';
 
-                  {/* DESLIZADOR INTERACTIVO */}
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold w-16 text-right ${textClass}`}>
-                      {estado}
-                    </span>
-                    <button 
-                      type="button"
-                      onClick={() => toggleAsistencia(alumno.id)}
-                      className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none shadow-inner ${bgClass}`}
-                    >
+                const textClass =
+                  estado === 'Presente'
+                    ? 'text-green-700'
+                    : estado === 'Ausente'
+                      ? 'text-red-700'
+                      : 'text-yellow-700';
+
+                const translateClass =
+                  estado === 'Presente'
+                    ? 'translate-x-7'
+                    : estado === 'Tarde'
+                      ? 'translate-x-3.5'
+                      : 'translate-x-0';
+
+                return (
+                  <div
+                    key={alumno.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {alumno.nombre} {alumno.apellido}
+                      </p>
+
+                      <p className="text-xs text-gray-400">
+                        {alumno.matricula}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
                       <span
-                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          estado === 'Presente' ? 'translate-x-7' : 
-                          estado === 'Tarde' ? 'translate-x-3.5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                        className={`w-16 text-right text-sm font-bold ${textClass}`}
+                      >
+                        {estado}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleAsistencia(alumno.id)
+                        }
+                        aria-label={`Cambiar asistencia de ${alumno.nombre}. Estado actual: ${estado}`}
+                        className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent shadow-inner transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-900 focus:ring-offset-2 ${bgClass}`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${translateClass}`}
+                        />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
-          <Button 
-            onClick={guardarAsistencia} 
-            className="w-full bg-red-900 hover:bg-red-800 text-white py-3 text-lg font-bold rounded-lg shadow-md mt-6"
-            disabled={loading || alumnos.length === 0}
+          <Button
+            onClick={guardarAsistencia}
+            className="mt-6 w-full rounded-lg bg-red-900 py-3 text-lg font-bold text-white shadow-md hover:bg-red-800"
+            disabled={
+              loading ||
+              loadingStudents ||
+              alumnos.length === 0
+            }
           >
-            {loading ? 'Guardando Lista...' : 'Guardar Asistencia del Día'}
+            {loading
+              ? 'Guardando Lista...'
+              : 'Guardar Asistencia del Día'}
           </Button>
-
         </div>
       </AppLayout>
     </ProtectedRoute>

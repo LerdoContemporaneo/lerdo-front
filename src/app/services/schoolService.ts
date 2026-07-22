@@ -189,7 +189,7 @@ export const incidentService = {
 
 
 
-type AttendanceStatus =
+export type AttendanceStatus =
   | 'Presente'
   | 'Ausente'
   | 'Tarde'
