@@ -93,19 +93,80 @@ export const studentService = {
 // --- GRUPOS (GRADOS) ---
 export const gradeService = {
   getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/grados`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
+    const res = await fetch(`${BASE_URL}/grados`, fetchConfig);
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data.msg || 'Error al obtener los grupos'
+      );
+    }
+
+    return ensureArray(data);
   },
-  create: async (data: any) => {
-    const res = await fetch(`${BASE_URL}/grados`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
-    return res.json();
+
+  create: async (data: {
+    nombre: string;
+    maestroId: number;
+  }) => {
+    const res = await fetch(`${BASE_URL}/grados`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg || 'Error al crear el grupo'
+      );
+    }
+
+    return responseData;
   },
-  delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/grados`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
-    return res.json();
-  }
+
+  update: async (
+    uuid: string,
+    data: {
+      nombre: string;
+      maestroId: number;
+    }
+  ) => {
+    const res = await fetch(`${BASE_URL}/grados/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg || 'Error al actualizar el grupo'
+      );
+    }
+
+    return responseData;
+  },
+
+  delete: async (uuid: string) => {
+    const res = await fetch(`${BASE_URL}/grados/${uuid}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg || 'Error al eliminar el grupo'
+      );
+    }
+
+    return responseData;
+  },
 };
 
 // --- INCIDENCIAS ---
@@ -126,27 +187,99 @@ export const incidentService = {
   }
 };
 
+
+
+type AttendanceStatus =
+  | 'Presente'
+  | 'Ausente'
+  | 'Tarde'
+  | 'Justificado';
+
+type AttendancePayload = {
+  alumnoId: number;
+  estado: AttendanceStatus;
+  fecha?: string;
+  gradoId?: number;
+  comentario?: string;
+};
+
+const createAttendance = async (
+  payload: AttendancePayload
+) => {
+  const res = await fetch(`${BASE_URL}/asistencia`, {
+    ...fetchConfig,
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data?.msg || 'No fue posible registrar la asistencia'
+    );
+  }
+
+  return data;
+};
+
 // --- ASISTENCIA ALUMNOS ---
 export const attendanceService = {
   getAll: async () => {
     try {
-      const res = await fetch(`${BASE_URL}/asistencia`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
+      const res = await fetch(`${BASE_URL}/asistencia`, {
+        ...fetchConfig,
+        method: 'GET',
+      });
+
+      const data = await res.json().catch(() => []);
+
+      if (!res.ok) {
+        throw new Error(
+          data?.msg || 'No fue posible obtener la asistencia'
+        );
+      }
+
+      return ensureArray(data);
+    } catch (error) {
+      console.error('Error obteniendo asistencia:', error);
+      return [];
+    }
   },
-  // CORRECCIÓN AQUÍ: Renombrado de 'create' a 'createStudent'
-  createStudent: async (alumnoId: number, estado: string) => {
-    const res = await fetch(`${BASE_URL}/asistencia`, { 
-      ...fetchConfig, 
-      method: 'POST', 
-      body: JSON.stringify({ alumnoId, estado }) 
+
+  // Método utilizado por el componente nuevo.
+  create: async (payload: AttendancePayload) => {
+    return createAttendance(payload);
+  },
+
+  // Compatibilidad con componentes anteriores.
+  createStudent: async (
+    alumnoId: number,
+    estado: AttendanceStatus
+  ) => {
+    return createAttendance({
+      alumnoId,
+      estado,
     });
-    return res.json();
   },
+
   delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/asistencia`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
-    return res.json();
-  }
+    const res = await fetch(`${BASE_URL}/asistencia`, {
+      ...fetchConfig,
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'No fue posible eliminar la asistencia'
+      );
+    }
+
+    return data;
+  },
 };
 
 // --- ASISTENCIA MAESTROS ---

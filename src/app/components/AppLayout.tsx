@@ -22,6 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Mi Perfil', href: '/me/alumno', roles: ['alumno'] },
     { name: 'Mi Grupo', href: '/me/maestro', roles: ['maestro'] },
     { name: 'Panel de Control', href: '/admin/me', roles: ['administrador'] },
+    { name: 'Asistencia', href: '/asistencias', roles: ['administrador', 'maestro'] },
     { name: 'Soporte', href: '/soporte', roles: ['administrador', 'maestro'] },
     { name: 'Grupos', href: '/grupos', roles: ['administrador', 'maestro'] },
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'maestro'] },

@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '../components/AppLayout';
 import { Table } from '../components/ui/Table';
 import { Input } from '../components/ui/Input';
@@ -7,201 +8,744 @@ import { Select } from '../components/ui/Select';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Pagination from '../components/ui/Pagination';
-import { studentService, gradeService, userService } from '../services/schoolService';
+import {
+  studentService,
+  gradeService,
+  userService,
+} from '../services/schoolService';
 import { useAuth } from '../hooks/useAuth';
+
+type Teacher = {
+  id: number;
+  uuid: string;
+  name: string;
+  email?: string;
+  role: string;
+};
+
+type Grade = {
+  id: number;
+  uuid: string;
+  nombre: string;
+  maestroId: number | null;
+  maestro?: Teacher | null;
+};
+
+type StudentUser = {
+  id: number;
+  uuid: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
+type Student = {
+  id: number;
+  uuid: string;
+  nombre: string;
+  apellido: string;
+  matricula: string;
+  tutor: string;
+  userId: number;
+  gradoId: number;
+  grado?: Grade | null;
+};
 
 export default function StudentsPage() {
   const { user } = useAuth();
+
   const isAdmin = user?.role === 'administrador';
-  
-  const [students, setStudents] = useState<any[]>([]);
-  const [grades, setGrades] = useState<any[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const isTeacher = user?.role === 'maestro';
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<StudentUser[]>([]);
+
   const [search, setSearch] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('');
+  const [teacherFilter, setTeacherFilter] = useState('');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false); // <--- ESTO FALTABA
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
+  const [loadingData, setLoadingData] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingUuid, setDeletingUuid] = useState<string | null>(null);
+
   const itemsPerPage = 6;
 
   const loadData = async () => {
-    const sData = await studentService.getAll();
-    const gData = await gradeService.getAll();
-    const allUsers = await userService.getAll();
-    
-    setStudents(sData);
-    setGrades(gData);
-    
-    // Filtrar usuarios con rol alumno que no tengan ya un registro en la tabla Alumnos
-    const studentUsers = allUsers.filter((u: any) => 
-        u.role === 'alumno' && !sData.some((s: any) => s.userId === u.id)
+    try {
+      setLoadingData(true);
+
+      const [studentsResponse, gradesResponse, usersResponse] =
+        await Promise.all([
+          studentService.getAll(),
+          gradeService.getAll(),
+          userService.getAll(),
+        ]);
+
+      const studentsData: Student[] = Array.isArray(studentsResponse)
+        ? studentsResponse
+        : [];
+
+      const gradesData: Grade[] = Array.isArray(gradesResponse)
+        ? gradesResponse
+        : [];
+
+      const usersData: StudentUser[] = Array.isArray(usersResponse)
+        ? usersResponse
+        : [];
+
+      setStudents(studentsData);
+      setGrades(gradesData);
+
+      // Usuarios con rol alumno que todavía no han sido vinculados.
+      const unlinkedStudentUsers = usersData.filter(
+        (candidate) =>
+          candidate.role === 'alumno' &&
+          !studentsData.some(
+            (student) => Number(student.userId) === Number(candidate.id)
+          )
+      );
+
+      setAvailableUsers(unlinkedStudentUsers);
+    } catch (error) {
+      console.error('Error cargando alumnos:', error);
+      alert('No fue posible cargar la información de alumnos.');
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  /*
+   * Solamente se pueden asignar alumnos a grupos que ya tengan maestro.
+   * Si el usuario actual es maestro, únicamente podrá ver sus grupos.
+   */
+  const assignableGrades = useMemo(() => {
+    const gradesWithTeacher = grades.filter(
+      (grade) => grade.maestroId && grade.maestro
     );
-    setAvailableUsers(studentUsers);
-  };
 
-  useEffect(() => { loadData(); }, []);
+    if (!isTeacher) {
+      return gradesWithTeacher;
+    }
 
-  const handleOpenEdit = (student: any) => {
-    setEditingStudent(student);
-    setIsModalOpen(true);
-  };
+    return gradesWithTeacher.filter(
+      (grade) =>
+        Number(grade.maestroId) === Number(user?.id) ||
+        grade.maestro?.uuid === user?.uuid
+    );
+  }, [grades, isTeacher, user]);
+
+  const teachers = useMemo(() => {
+    const teacherMap = new Map<number, Teacher>();
+
+    grades.forEach((grade) => {
+      if (grade.maestro) {
+        teacherMap.set(grade.maestro.id, grade.maestro);
+      }
+    });
+
+    return Array.from(teacherMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [grades]);
+
+  const visibleStudents = useMemo(() => {
+    if (!isTeacher) {
+      return students;
+    }
+
+    return students.filter(
+      (student) =>
+        Number(student.grado?.maestroId) === Number(user?.id) ||
+        student.grado?.maestro?.uuid === user?.uuid
+    );
+  }, [students, isTeacher, user]);
+
+  const filteredStudents = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return visibleStudents.filter((student) => {
+      const fullName = `${student.nombre || ''} ${
+        student.apellido || ''
+      }`.toLowerCase();
+
+      const matchesSearch =
+        !normalizedSearch ||
+        fullName.includes(normalizedSearch) ||
+        student.matricula?.toLowerCase().includes(normalizedSearch) ||
+        student.grado?.nombre?.toLowerCase().includes(normalizedSearch) ||
+        student.grado?.maestro?.name
+          ?.toLowerCase()
+          .includes(normalizedSearch);
+
+      const matchesGrade =
+        !gradeFilter ||
+        String(student.gradoId) === gradeFilter;
+
+      const matchesTeacher =
+        !teacherFilter ||
+        String(student.grado?.maestroId) === teacherFilter;
+
+      return matchesSearch && matchesGrade && matchesTeacher;
+    });
+  }, [
+    visibleStudents,
+    search,
+    gradeFilter,
+    teacherFilter,
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredStudents.length / itemsPerPage)
+  );
+
+  const currentData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredStudents.slice(start, start + itemsPerPage);
+  }, [filteredStudents, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, gradeFilter, teacherFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleOpenCreate = () => {
     setEditingStudent(null);
     setIsModalOpen(true);
   };
 
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
-  const formData = new FormData(e.currentTarget);
-  const selectedUserId = formData.get('userId');
-
-  // Buscamos el objeto del usuario seleccionado para obtener su nombre/apellido
-  const selectedUser = availableUsers.find(u => u.id.toString() === selectedUserId);
-
-  const payload: any = {
-    matricula: formData.get('matricula') as string,
-    tutor: formData.get('tutor') as string,
-    gradoId: Number(formData.get('gradoId')),
+  const handleOpenEdit = (student: Student) => {
+    setEditingStudent(student);
+    setIsModalOpen(true);
   };
 
-  if (!editingStudent && selectedUser) {
-    // Dividimos el nombre del usuario (ej: "Juan Perez") para enviarlo al backend
-    const nameParts = selectedUser.name.split(' ');
-    payload.nombre = nameParts[0]; 
-    payload.apellido = nameParts.slice(1).join(' ') || ' ';
-    payload.userId = selectedUser.id;
-    
-    // Datos por defecto para el controlador
-    payload.email = selectedUser.email;
-    payload.password = 'defaultPassword123'; 
-    payload.confPassword = 'defaultPassword123';
-  }
+  const handleCloseModal = () => {
+    if (saving) return;
 
-  try {
-    if (editingStudent) {
-      await studentService.update(editingStudent.uuid, payload);
-      alert("¡Perfil actualizado!");
-    } else {
-      await studentService.create(payload);
-      alert("¡Usuario vinculado como alumno!");
-    }
     setIsModalOpen(false);
-    loadData();
-  } catch (error) {
-    alert("Error al guardar");
-  } finally {
-    setLoading(false);
-  }
-};
+    setEditingStudent(null);
+  };
 
-  const filtered = Array.isArray(students) ? students.filter((s: any) => 
-    s.nombre?.toLowerCase().includes(search.toLowerCase()) || 
-    s.matricula?.includes(search)
-  ) : [];
+  const handleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-  const currentData = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const formData = new FormData(event.currentTarget);
+    const selectedUserId = String(formData.get('userId') || '');
+
+    const selectedUser = availableUsers.find(
+      (candidate) => String(candidate.id) === selectedUserId
+    );
+
+    const gradoId = Number(formData.get('gradoId'));
+
+    const selectedGrade = assignableGrades.find(
+      (grade) => Number(grade.id) === gradoId
+    );
+
+    if (!selectedGrade) {
+      alert(
+        'Selecciona un grupo que tenga un maestro responsable asignado.'
+      );
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      matricula: String(formData.get('matricula') || '').trim(),
+      tutor: String(formData.get('tutor') || '').trim(),
+      gradoId,
+    };
+
+    if (!editingStudent) {
+      if (!selectedUser) {
+        alert('Selecciona el usuario que será vinculado como alumno.');
+        return;
+      }
+
+      const nameParts = selectedUser.name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      payload.nombre = nameParts[0] || selectedUser.name;
+      payload.apellido = nameParts.slice(1).join(' ') || '';
+      payload.userId = selectedUser.id;
+      payload.email = selectedUser.email;
+    }
+
+    try {
+      setSaving(true);
+
+      if (editingStudent) {
+        await studentService.update(editingStudent.uuid, payload);
+        alert('Alumno actualizado correctamente.');
+      } else {
+        await studentService.create(payload);
+        alert('Usuario vinculado como alumno correctamente.');
+      }
+
+      handleCloseModal();
+      await loadData();
+    } catch (error) {
+      console.error('Error guardando alumno:', error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible guardar el alumno.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (student: Student) => {
+    const confirmed = window.confirm(
+      `¿Estás seguro de eliminar a ${student.nombre} ${student.apellido}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingUuid(student.uuid);
+
+      await studentService.delete(student.uuid);
+      await loadData();
+
+      alert('Alumno eliminado correctamente.');
+    } catch (error) {
+      console.error('Error eliminando alumno:', error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible eliminar el alumno.'
+      );
+    } finally {
+      setDeletingUuid(null);
+    }
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setGradeFilter('');
+    setTeacherFilter('');
+    setCurrentPage(1);
+  };
 
   return (
     <AppLayout>
-      <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800">Lista de de Alumnos</h2>
-          {isAdmin && (
-            <Button onClick={handleOpenCreate} className="bg-red-900 text-white">
-              + Nuevo Alumno
-            </Button>
+      <div className="space-y-6">
+        <div className="rounded-lg bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">
+                Lista de alumnos
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                {isTeacher
+                  ? 'Alumnos pertenecientes a los grupos que tienes asignados.'
+                  : 'Administra los alumnos, sus grupos y maestros responsables.'}
+              </p>
+            </div>
+
+            {isAdmin && (
+              <Button
+                type="button"
+                onClick={handleOpenCreate}
+                className="bg-red-900 text-white hover:bg-red-800"
+              >
+                + Nuevo alumno
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">
+              Total de alumnos
+            </p>
+
+            <p className="mt-2 text-3xl font-bold text-gray-900">
+              {visibleStudents.length}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">
+              Grupos con alumnos
+            </p>
+
+            <p className="mt-2 text-3xl font-bold text-blue-700">
+              {
+                new Set(
+                  visibleStudents
+                    .map((student) => student.gradoId)
+                    .filter(Boolean)
+                ).size
+              }
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">
+              Resultados encontrados
+            </p>
+
+            <p className="mt-2 text-3xl font-bold text-red-900">
+              {filteredStudents.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-white p-6 shadow-sm">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Input
+              label="Buscar alumno"
+              placeholder="Nombre, matrícula, grupo o maestro..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+
+            <Select
+              label="Filtrar por grupo"
+              value={gradeFilter}
+              onChange={(event) => setGradeFilter(event.target.value)}
+              options={[
+                {
+                  label: 'Todos los grupos',
+                  value: '',
+                },
+                ...assignableGrades.map((grade) => ({
+                  label: grade.nombre,
+                  value: String(grade.id),
+                })),
+              ]}
+            />
+
+            {!isTeacher && (
+              <Select
+                label="Filtrar por maestro"
+                value={teacherFilter}
+                onChange={(event) =>
+                  setTeacherFilter(event.target.value)
+                }
+                options={[
+                  {
+                    label: 'Todos los maestros',
+                    value: '',
+                  },
+                  ...teachers.map((teacher) => ({
+                    label: teacher.name,
+                    value: String(teacher.id),
+                  })),
+                ]}
+              />
+            )}
+          </div>
+
+          {(search || gradeFilter || teacherFilter) && (
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                onClick={clearFilters}
+                className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              >
+                Limpiar filtros
+              </Button>
+            </div>
           )}
         </div>
 
-        <Input 
-          placeholder="Buscar por nombre o matrícula..." 
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-        />
+        <div className="overflow-hidden rounded-lg bg-white shadow-sm">
+          {loadingData ? (
+            <div className="p-10 text-center text-gray-500">
+              Cargando alumnos...
+            </div>
+          ) : currentData.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="font-medium text-gray-700">
+                No se encontraron alumnos
+              </p>
 
-        <Table 
-          columns={[
-            { key: 'matricula', header: 'Matrícula' },
-            { key: 'nombre', header: 'Nombre', render: (r: any) => `${r.nombre} ${r.apellido}` },
-            { key: 'grado', header: 'Grupo', render: (r: any) => r.grado?.nombre || 'S/G' },
-            { 
-              key: 'actions', 
-              header: 'Acciones', 
-              render: (r: any) => isAdmin && (
-                <div className="flex gap-2">
-                  <Button 
-                    className="py-1 px-2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100" 
-                    onClick={() => handleOpenEdit(r)}
+              <p className="mt-1 text-sm text-gray-500">
+                Intenta modificar la búsqueda o los filtros seleccionados.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:block">
+                <Table
+                  columns={[
+                    {
+                      key: 'matricula',
+                      header: 'Matrícula',
+                    },
+                    {
+                      key: 'nombre',
+                      header: 'Alumno',
+                      render: (student: Student) =>
+                        `${student.nombre} ${student.apellido}`,
+                    },
+                    {
+                      key: 'grado',
+                      header: 'Grupo',
+                      render: (student: Student) =>
+                        student.grado?.nombre || 'Sin grupo',
+                    },
+                    {
+                      key: 'maestro',
+                      header: 'Maestro responsable',
+                      render: (student: Student) =>
+                        student.grado?.maestro?.name || (
+                          <span className="text-amber-700">
+                            Sin maestro
+                          </span>
+                        ),
+                    },
+                    {
+                      key: 'estado',
+                      header: 'Estado',
+                      render: (student: Student) =>
+                        student.grado?.maestro ? (
+                          <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                            Asignado
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                            Sin asignar
+                          </span>
+                        ),
+                    },
+                    {
+                      key: 'actions',
+                      header: 'Acciones',
+                      render: (student: Student) =>
+                        isAdmin ? (
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              className="bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100"
+                              onClick={() => handleOpenEdit(student)}
+                            >
+                              Editar
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="danger"
+                              disabled={deletingUuid === student.uuid}
+                              className="bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
+                              onClick={() => handleDelete(student)}
+                            >
+                              {deletingUuid === student.uuid
+                                ? 'Eliminando...'
+                                : 'Eliminar'}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">
+                            Solo lectura
+                          </span>
+                        ),
+                    },
+                  ]}
+                  data={currentData}
+                />
+              </div>
+
+              <div className="grid gap-4 p-4 md:hidden">
+                {currentData.map((student) => (
+                  <article
+                    key={student.uuid}
+                    className="rounded-lg border border-gray-200 p-4"
                   >
-                    Editar
-                  </Button>
-                  <Button 
-                    variant="danger" 
-                    className="py-1 px-2 text-xs bg-red-50 text-red-700 hover:bg-red-100" 
-                    onClick={async () => {
-                      if(confirm('¿Estás seguro de eliminar este alumno?')) { 
-                        await studentService.delete(r.uuid);
-                        loadData(); 
-                      }
-                    }}
-                  >
-                    Eliminar
-                  </Button>
-                </div>
-              )
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900">
+                          {student.nombre} {student.apellido}
+                        </h3>
+
+                        <p className="text-sm text-gray-500">
+                          Matrícula: {student.matricula}
+                        </p>
+                      </div>
+
+                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                        Asignado
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-2 text-sm">
+                      <p>
+                        <span className="font-semibold">Grupo:</span>{' '}
+                        {student.grado?.nombre || 'Sin grupo'}
+                      </p>
+
+                      <p>
+                        <span className="font-semibold">Maestro:</span>{' '}
+                        {student.grado?.maestro?.name ||
+                          'Sin maestro asignado'}
+                      </p>
+
+                      <p>
+                        <span className="font-semibold">Tutor:</span>{' '}
+                        {student.tutor}
+                      </p>
+                    </div>
+
+                    {isAdmin && (
+                      <div className="mt-4 flex gap-2 border-t pt-4">
+                        <Button
+                          type="button"
+                          className="flex-1 bg-blue-50 text-blue-700"
+                          onClick={() => handleOpenEdit(student)}
+                        >
+                          Editar
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="danger"
+                          className="flex-1 bg-red-50 text-red-700"
+                          disabled={deletingUuid === student.uuid}
+                          onClick={() => handleDelete(student)}
+                        >
+                          {deletingUuid === student.uuid
+                            ? 'Eliminando...'
+                            : 'Eliminar'}
+                        </Button>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+
+              <div className="border-t border-gray-200 p-4">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <Modal
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        title={
+          editingStudent
+            ? 'Editar alumno'
+            : 'Vincular nuevo alumno'
+        }
+      >
+        <form
+          key={editingStudent?.uuid || 'new-student'}
+          onSubmit={handleSubmit}
+          className="space-y-4 p-4"
+        >
+          {editingStudent && (
+            <div className="rounded bg-gray-100 p-3 text-sm font-semibold text-gray-700">
+              Alumno: {editingStudent.nombre}{' '}
+              {editingStudent.apellido}
+            </div>
+          )}
+
+          {!editingStudent && (
+            <Select
+              label="Seleccionar usuario"
+              name="userId"
+              required
+              options={[
+                {
+                  label: 'Selecciona un usuario alumno',
+                  value: '',
+                },
+                ...availableUsers.map((studentUser) => ({
+                  label: `${studentUser.name} — ${studentUser.email}`,
+                  value: String(studentUser.id),
+                })),
+              ]}
+            />
+          )}
+
+          <Input
+            label="Matrícula"
+            name="matricula"
+            defaultValue={editingStudent?.matricula || ''}
+            required
+          />
+
+          <Input
+            label="Tutor"
+            name="tutor"
+            defaultValue={editingStudent?.tutor || ''}
+            required
+          />
+
+          <Select
+            label="Grupo / grado"
+            name="gradoId"
+            required
+            defaultValue={
+              editingStudent?.gradoId
+                ? String(editingStudent.gradoId)
+                : ''
             }
-          ]} 
-          data={currentData} 
-        />
+            options={[
+              {
+                label: 'Selecciona un grupo',
+                value: '',
+              },
+              ...assignableGrades.map((grade) => ({
+                label: `${grade.nombre} — ${
+                  grade.maestro?.name || 'Sin maestro'
+                }`,
+                value: String(grade.id),
+              })),
+            ]}
+          />
 
-        <Pagination 
-          currentPage={currentPage} 
-          totalPages={totalPages} 
-          onPageChange={setCurrentPage} 
-        />
-      </div>
+          {assignableGrades.length === 0 && (
+            <p className="rounded bg-amber-50 p-3 text-sm text-amber-700">
+              No hay grupos disponibles con un maestro asignado. Primero
+              asigna un maestro desde Gestión de Grupos.
+            </p>
+          )}
 
-     <Modal 
-  open={isModalOpen} 
-  onClose={() => { setIsModalOpen(false); setEditingStudent(null); }} 
-  title={editingStudent ? "Editar Alumno" : "Vincular Nuevo Alumno"}
->
-  <form onSubmit={handleSubmit} className="p-4 space-y-4">
-    {/* Si estamos editando, mostramos el nombre pero no dejamos editarlo (o lo quitamos) */}
-    {editingStudent && (
-      <div className="p-2 bg-gray-100 rounded text-sm font-semibold text-gray-700">
-        Alumno: {editingStudent.nombre} {editingStudent.apellido}
-      </div>
-    )}
-
-    {!editingStudent && (
-      <Select 
-        label="Seleccionar Usuario" 
-        name="userId" 
-        required 
-        options={availableUsers.map((u: any) => ({ label: u.name, value: u.id.toString() }))}
-      />
-    )}
-    
-    <Input label="Matrícula" name="matricula" defaultValue={editingStudent?.matricula} required />
-    <Input label="Tutor" name="tutor" defaultValue={editingStudent?.tutor} required />
-    
-    <Select 
-      label="Grupo / Grado" 
-      name="gradoId" 
-      required 
-      defaultValue={editingStudent?.gradoId?.toString()}
-      options={grades.map((g: any) => ({ label: g.nombre, value: g.id.toString() }))}
-    />
-    
-    <Button type="submit" className="w-full bg-red-900 text-white" disabled={loading}>
-      {loading ? "Procesando..." : (editingStudent ? "Actualizar Datos" : "Vincular y Guardar")}
-    </Button>
-  </form>
-</Modal>
+          <Button
+            type="submit"
+            className="w-full bg-red-900 text-white hover:bg-red-800"
+            disabled={saving || assignableGrades.length === 0}
+          >
+            {saving
+              ? 'Procesando...'
+              : editingStudent
+                ? 'Actualizar datos'
+                : 'Vincular y guardar'}
+          </Button>
+        </form>
+      </Modal>
     </AppLayout>
   );
 }
