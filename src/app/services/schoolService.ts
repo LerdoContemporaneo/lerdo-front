@@ -225,34 +225,48 @@ const createAttendance = async (
 
 // --- ASISTENCIA ALUMNOS ---
 export const attendanceService = {
+  // GET /asistencia
   getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/asistencia`, {
-        ...fetchConfig,
-        method: 'GET',
-      });
+    const res = await fetch(`${BASE_URL}/asistencia`, {
+      ...fetchConfig,
+      method: 'GET',
+    });
 
-      const data = await res.json().catch(() => []);
+    const data = await res.json().catch(() => []);
 
-      if (!res.ok) {
-        throw new Error(
-          data?.msg || 'No fue posible obtener la asistencia'
-        );
-      }
-
-      return ensureArray(data);
-    } catch (error) {
-      console.error('Error obteniendo asistencia:', error);
-      return [];
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'No fue posible obtener la asistencia'
+      );
     }
+
+    return ensureArray(data);
   },
 
-  // Método utilizado por el componente nuevo.
+  // GET /asistencia/:id
+  getById: async (id: number) => {
+    const res = await fetch(`${BASE_URL}/asistencia/${id}`, {
+      ...fetchConfig,
+      method: 'GET',
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'No fue posible obtener el registro'
+      );
+    }
+
+    return data;
+  },
+
+  // POST /asistencia
   create: async (payload: AttendancePayload) => {
     return createAttendance(payload);
   },
 
-  // Compatibilidad con componentes anteriores.
+  // Compatibilidad con componentes anteriores
   createStudent: async (
     alumnoId: number,
     estado: AttendanceStatus
@@ -263,22 +277,44 @@ export const attendanceService = {
     });
   },
 
-  delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/asistencia`, {
+  // PATCH /asistencia/:id
+  update: async (
+    id: number,
+    payload: Partial<AttendancePayload>
+  ) => {
+    const res = await fetch(`${BASE_URL}/asistencia/${id}`, {
       ...fetchConfig,
-      method: 'DELETE',
-      body: JSON.stringify({ id }),
+      method: 'PATCH',
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(
-        data?.msg || 'No fue posible eliminar la asistencia'
+        data?.msg || 'No fue posible actualizar la asistencia'
       );
     }
 
     return data;
+  },
+
+  // DELETE /asistencia/:id
+  delete: async (id: number) => {
+    const res = await fetch(`${BASE_URL}/asistencia/${id}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+
+      throw new Error(
+        data?.msg || 'No fue posible eliminar la asistencia'
+      );
+    }
+
+    return true;
   },
 };
 
