@@ -2,6 +2,7 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 interface LoginResponse {
+  id: number;
   uuid: string;
   name: string;
   email: string;
@@ -40,7 +41,7 @@ export async function checkMeApi(): Promise<LoginResponse | null> {
   return null; 
 }
 
-// 👇 NUEVA FUNCIÓN AGREGADA 👇
+
 export async function logoutApi(): Promise<void> {
   await fetch(`${BASE_URL}/logout`, {
     method: "DELETE", // En tu rest.rest dice que el logout es DELETE

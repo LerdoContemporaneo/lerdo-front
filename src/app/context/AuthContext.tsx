@@ -1,10 +1,11 @@
 // context/AuthContext.tsx
 'use client';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-// Importamos tambien logoutApi
+
 import { loginApi, checkMeApi, logoutApi } from '../services/authService';
 
 export interface UserData {
+    id: number;
     uuid: string;
     name: string;
     email: string;
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkSession();
     }, []);
 
-    // 👇 LOGIN CORREGIDO 👇
+  
     async function login(email: string, password: string): Promise<{ success: boolean; role?: string }> {
         try {
             const userData = await loginApi(email, password);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // 👇 LOGOUT CORREGIDO 👇
+
     async function logout() {
         try {
             // Le avisamos al servidor que destruya la sesión
