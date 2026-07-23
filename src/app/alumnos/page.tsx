@@ -27,8 +27,9 @@ type Grade = {
   id: number;
   uuid: string;
   nombre: string;
-  maestroId: number | null;
+  maestroId: number | string | null;
   maestro?: Teacher | null;
+  Maestro?: Teacher | null;
 };
 
 type StudentUser = {
@@ -47,8 +48,9 @@ type Student = {
   matricula: string;
   tutor: string;
   userId: number;
-  gradoId: number;
+  gradoId: number | string | null;
   grado?: Grade | null;
+  Grado?: Grade | null;
 };
 
 export default function StudentsPage() {
@@ -72,6 +74,8 @@ export default function StudentsPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingUuid, setDeletingUuid] = useState<string | null>(null);
+
+  const [teacherUsers, setTeacherUsers] = useState<Teacher[]>([]);
 
   const itemsPerPage = 6;
 
@@ -101,6 +105,12 @@ export default function StudentsPage() {
       setStudents(studentsData);
       setGrades(gradesData);
 
+      setTeacherUsers(
+        usersData.filter(
+          (candidate) => candidate.role === 'maestro'
+        )
+      );
+
       // Usuarios con rol alumno que todavía no han sido vinculados.
       const unlinkedStudentUsers = usersData.filter(
         (candidate) =>
@@ -123,51 +133,165 @@ export default function StudentsPage() {
     loadData();
   }, []);
 
-  /*
-   * Solamente se pueden asignar alumnos a grupos que ya tengan maestro.
-   * Si el usuario actual es maestro, únicamente podrá ver sus grupos.
-   */
-  const assignableGrades = useMemo(() => {
-    const gradesWithTeacher = grades.filter(
-      (grade) => grade.maestroId && grade.maestro
+  const teacherDirectory = useMemo(() => {
+  const directory = new Map<number, Teacher>();
+
+  teacherUsers.forEach((teacher) => {
+    directory.set(Number(teacher.id), teacher);
+  });
+
+  grades.forEach((grade) => {
+    const nestedTeacher =
+      grade.maestro ?? grade.Maestro ?? null;
+
+    if (nestedTeacher) {
+      directory.set(
+        Number(nestedTeacher.id),
+        nestedTeacher
+      );
+    }
+  });
+
+  return directory;
+}, [teacherUsers, grades]);
+
+const normalizedGrades = useMemo<Grade[]>(() => {
+  return grades.map((grade) => {
+    const nestedTeacher =
+      grade.maestro ?? grade.Maestro ?? null;
+
+    const teacherId = Number(grade.maestroId);
+
+    const resolvedTeacher =
+      nestedTeacher ??
+      (teacherId > 0
+        ? teacherDirectory.get(teacherId) ?? null
+        : null);
+
+    return {
+      ...grade,
+      maestro: resolvedTeacher,
+    };
+  });
+}, [grades, teacherDirectory]);
+
+const gradeDirectory = useMemo(() => {
+  return new Map<number, Grade>(
+    normalizedGrades.map((grade) => [
+      Number(grade.id),
+      grade,
+    ])
+  );
+}, [normalizedGrades]);
+
+const normalizedStudents = useMemo<Student[]>(() => {
+  return students.map((student) => {
+    const nestedGrade =
+      student.grado ?? student.Grado ?? null;
+
+    const gradeId = Number(
+      student.gradoId ?? nestedGrade?.id ?? 0
     );
 
-    if (!isTeacher) {
-      return gradesWithTeacher;
+    const resolvedGrade =
+      gradeDirectory.get(gradeId) ??
+      nestedGrade ??
+      null;
+
+    if (!resolvedGrade) {
+      return {
+        ...student,
+        grado: null,
+      };
     }
 
-    return gradesWithTeacher.filter(
-      (grade) =>
-        Number(grade.maestroId) === Number(user?.id) ||
-        grade.maestro?.uuid === user?.uuid
+    const nestedTeacher =
+      resolvedGrade.maestro ??
+      resolvedGrade.Maestro ??
+      null;
+
+    const teacherId = Number(
+      resolvedGrade.maestroId
     );
-  }, [grades, isTeacher, user]);
 
-  const teachers = useMemo(() => {
-    const teacherMap = new Map<number, Teacher>();
+    const resolvedTeacher =
+      nestedTeacher ??
+      (teacherId > 0
+        ? teacherDirectory.get(teacherId) ?? null
+        : null);
 
-    grades.forEach((grade) => {
-      if (grade.maestro) {
-        teacherMap.set(grade.maestro.id, grade.maestro);
-      }
-    });
+    return {
+      ...student,
+      gradoId: student.gradoId ?? resolvedGrade.id,
+      grado: {
+        ...resolvedGrade,
+        maestro: resolvedTeacher,
+      },
+    };
+  });
+}, [students, gradeDirectory, teacherDirectory]);
 
-    return Array.from(teacherMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
-  }, [grades]);
+const assignableGrades = useMemo(() => {
+  const gradesWithTeacher = normalizedGrades.filter(
+    (grade) =>
+      Boolean(grade.maestro) ||
+      Number(grade.maestroId) > 0
+  );
 
-  const visibleStudents = useMemo(() => {
-    if (!isTeacher) {
-      return students;
+  if (!isTeacher) {
+    return gradesWithTeacher;
+  }
+
+  return gradesWithTeacher.filter((grade) => {
+    const sameId =
+      Number(grade.maestroId) === Number(user?.id) ||
+      Number(grade.maestro?.id) === Number(user?.id);
+
+    const sameUuid =
+      Boolean(user?.uuid) &&
+      grade.maestro?.uuid === user?.uuid;
+
+    return sameId || sameUuid;
+  });
+}, [normalizedGrades, isTeacher, user]);
+
+const teachers = useMemo(() => {
+  const teacherMap = new Map<number, Teacher>();
+
+  normalizedGrades.forEach((grade) => {
+    if (grade.maestro) {
+      teacherMap.set(
+        Number(grade.maestro.id),
+        grade.maestro
+      );
     }
+  });
 
-    return students.filter(
-      (student) =>
-        Number(student.grado?.maestroId) === Number(user?.id) ||
-        student.grado?.maestro?.uuid === user?.uuid
-    );
-  }, [students, isTeacher, user]);
+  return Array.from(teacherMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}, [normalizedGrades]);
+
+const visibleStudents = useMemo(() => {
+  if (!isTeacher) {
+    return normalizedStudents;
+  }
+
+  return normalizedStudents.filter((student) => {
+    const sameId =
+      Number(student.grado?.maestroId) ===
+        Number(user?.id) ||
+      Number(student.grado?.maestro?.id) ===
+        Number(user?.id);
+
+    const sameUuid =
+      Boolean(user?.uuid) &&
+      student.grado?.maestro?.uuid === user?.uuid;
+
+    return sameId || sameUuid;
+  });
+}, [normalizedStudents, isTeacher, user]);
+
 
   const filteredStudents = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -186,13 +310,20 @@ export default function StudentsPage() {
           ?.toLowerCase()
           .includes(normalizedSearch);
 
-      const matchesGrade =
-        !gradeFilter ||
-        String(student.gradoId) === gradeFilter;
+      const studentGradeId =
+  student.gradoId ?? student.grado?.id;
 
-      const matchesTeacher =
-        !teacherFilter ||
-        String(student.grado?.maestroId) === teacherFilter;
+const studentTeacherId =
+  student.grado?.maestroId ??
+  student.grado?.maestro?.id;
+
+const matchesGrade =
+  !gradeFilter ||
+  String(studentGradeId) === gradeFilter;
+
+const matchesTeacher =
+  !teacherFilter ||
+  String(studentTeacherId) === teacherFilter;
 
       return matchesSearch && matchesGrade && matchesTeacher;
     });
@@ -397,7 +528,10 @@ export default function StudentsPage() {
               {
                 new Set(
                   visibleStudents
-                    .map((student) => student.gradoId)
+                    .map(
+                        (student) =>
+                          student.gradoId ?? student.grado?.id
+                      )
                     .filter(Boolean)
                 ).size
               }
@@ -588,9 +722,15 @@ export default function StudentsPage() {
                         </p>
                       </div>
 
-                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                        Asignado
-                      </span>
+                    {student.grado?.maestro ? (
+  <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+    Asignado
+  </span>
+) : (
+  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+    Sin asignar
+  </span>
+)}
                     </div>
 
                     <div className="mt-4 space-y-2 text-sm">
