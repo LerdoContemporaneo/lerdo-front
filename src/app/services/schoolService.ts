@@ -64,30 +64,79 @@ delete: async (uuid: string) => {
 export const studentService = {
   getAll: async () => {
     try {
-      const res = await fetch(`${BASE_URL}/alumnos`, fetchConfig);
+      const res = await fetch(
+        `${BASE_URL}/alumnos`,
+        fetchConfig
+      );
+
       return ensureArray(await res.json());
-    } catch (e) { return []; }
+    } catch (error) {
+      console.error('Error obteniendo alumnos:', error);
+      return [];
+    }
   },
-  create: async (data: any) => {
-    const res = await fetch(`${BASE_URL}/alumnos`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
-    return res.json();
-  },
-  update: async (uuid: string, data: any) => {
-    const res = await fetch(`${BASE_URL}/alumnos/${uuid}`, {
+
+  create: async (data: Record<string, unknown>) => {
+    const res = await fetch(`${BASE_URL}/alumnos`, {
       ...fetchConfig,
-      method: 'PATCH', // Tu backend usa PATCH según vimos en updateAlumnos
-      body: JSON.stringify(data)
+      method: 'POST',
+      body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Error al actualizar el alumno");
-    return res.json();
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg || 'Error al crear el alumno'
+      );
+    }
+
+    return responseData;
   },
+
+  update: async (
+    uuid: string,
+    data: Record<string, unknown>
+  ) => {
+    const res = await fetch(
+      `${BASE_URL}/alumnos/${uuid}`,
+      {
+        ...fetchConfig,
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg || 'Error al actualizar el alumno'
+      );
+    }
+
+    return responseData;
+  },
+
   delete: async (uuid: string) => {
-  const res = await fetch(`${BASE_URL}/alumnos/${uuid}`, { 
-    ...fetchConfig, 
-    method: 'DELETE' 
-  });
-  return res.json();
-}
+    const res = await fetch(
+      `${BASE_URL}/alumnos/${uuid}`,
+      {
+        ...fetchConfig,
+        method: 'DELETE',
+      }
+    );
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg || 'Error al eliminar el alumno'
+      );
+    }
+
+    return responseData;
+  },
 };
 
 // --- GRUPOS (GRADOS) ---
