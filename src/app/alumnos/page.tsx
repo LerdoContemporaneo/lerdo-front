@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import AppLayout from '../components/AppLayout';
-import { Table } from '../components/ui/Table';
-import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
-import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
-import Pagination from '../components/ui/Pagination';
+import React, { useEffect, useMemo, useState } from "react";
+import AppLayout from "../components/AppLayout";
+import { Table } from "../components/ui/Table";
+import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
+import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import Pagination from "../components/ui/Pagination";
 import {
   studentService,
   gradeService,
   userService,
-} from '../services/schoolService';
-import { useAuth } from '../hooks/useAuth';
+} from "../services/schoolService";
+import { useAuth } from "../hooks/useAuth";
 
 type Teacher = {
   id: number;
@@ -48,28 +48,52 @@ type Student = {
   matricula: string;
   tutor: string;
   userId: number;
-  gradoId: number | string | null;
+  gradoIds?: Array<number | string>;
+  grados?: Grade[];
+  Grados?: Grade[];
+  // Campos temporales de compatibilidad con la estructura anterior.
+  gradoId?: number | string | null;
   grado?: Grade | null;
   Grado?: Grade | null;
+};
+
+const getStudentGradeIds = (student: Student): number[] => {
+  const nestedGrades = [
+    ...(student.grados ?? []),
+    ...(student.Grados ?? []),
+    ...(student.grado ? [student.grado] : []),
+    ...(student.Grado ? [student.Grado] : []),
+  ];
+
+  const ids = [
+    ...(student.gradoIds ?? []),
+    ...nestedGrades.map((grade) => grade.id),
+    ...(student.gradoId ? [student.gradoId] : []),
+  ]
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  return Array.from(new Set(ids));
 };
 
 export default function StudentsPage() {
   const { user } = useAuth();
 
-  const isAdmin = user?.role === 'administrador';
-  const isTeacher = user?.role === 'maestro';
+  const isAdmin = user?.role === "administrador";
+  const isTeacher = user?.role === "maestro";
 
   const [students, setStudents] = useState<Student[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [availableUsers, setAvailableUsers] = useState<StudentUser[]>([]);
 
-  const [search, setSearch] = useState('');
-  const [gradeFilter, setGradeFilter] = useState('');
-  const [teacherFilter, setTeacherFilter] = useState('');
+  const [search, setSearch] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("");
+  const [teacherFilter, setTeacherFilter] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [selectedGradeIds, setSelectedGradeIds] = useState<number[]>([]);
 
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,24 +130,22 @@ export default function StudentsPage() {
       setGrades(gradesData);
 
       setTeacherUsers(
-        usersData.filter(
-          (candidate) => candidate.role === 'maestro'
-        )
+        usersData.filter((candidate) => candidate.role === "maestro"),
       );
 
       // Usuarios con rol alumno que todavía no han sido vinculados.
       const unlinkedStudentUsers = usersData.filter(
         (candidate) =>
-          candidate.role === 'alumno' &&
+          candidate.role === "alumno" &&
           !studentsData.some(
-            (student) => Number(student.userId) === Number(candidate.id)
-          )
+            (student) => Number(student.userId) === Number(candidate.id),
+          ),
       );
 
       setAvailableUsers(unlinkedStudentUsers);
     } catch (error) {
-      console.error('Error cargando alumnos:', error);
-      alert('No fue posible cargar la información de alumnos.');
+      console.error("Error cargando alumnos:", error);
+      alert("No fue posible cargar la información de alumnos.");
     } finally {
       setLoadingData(false);
     }
@@ -134,209 +156,192 @@ export default function StudentsPage() {
   }, []);
 
   const teacherDirectory = useMemo(() => {
-  const directory = new Map<number, Teacher>();
+    const directory = new Map<number, Teacher>();
 
-  teacherUsers.forEach((teacher) => {
-    directory.set(Number(teacher.id), teacher);
-  });
+    teacherUsers.forEach((teacher) => {
+      directory.set(Number(teacher.id), teacher);
+    });
 
-  grades.forEach((grade) => {
-    const nestedTeacher =
-      grade.maestro ?? grade.Maestro ?? null;
+    grades.forEach((grade) => {
+      const nestedTeacher = grade.maestro ?? grade.Maestro ?? null;
 
-    if (nestedTeacher) {
-      directory.set(
-        Number(nestedTeacher.id),
-        nestedTeacher
-      );
-    }
-  });
+      if (nestedTeacher) {
+        directory.set(Number(nestedTeacher.id), nestedTeacher);
+      }
+    });
 
-  return directory;
-}, [teacherUsers, grades]);
+    return directory;
+  }, [teacherUsers, grades]);
 
-const normalizedGrades = useMemo<Grade[]>(() => {
-  return grades.map((grade) => {
-    const nestedTeacher =
-      grade.maestro ?? grade.Maestro ?? null;
+  const normalizedGrades = useMemo<Grade[]>(() => {
+    return grades.map((grade) => {
+      const nestedTeacher = grade.maestro ?? grade.Maestro ?? null;
 
-    const teacherId = Number(grade.maestroId);
+      const teacherId = Number(grade.maestroId);
 
-    const resolvedTeacher =
-      nestedTeacher ??
-      (teacherId > 0
-        ? teacherDirectory.get(teacherId) ?? null
-        : null);
+      const resolvedTeacher =
+        nestedTeacher ??
+        (teacherId > 0 ? (teacherDirectory.get(teacherId) ?? null) : null);
 
-    return {
-      ...grade,
-      maestro: resolvedTeacher,
-    };
-  });
-}, [grades, teacherDirectory]);
+      return {
+        ...grade,
+        maestro: resolvedTeacher,
+      };
+    });
+  }, [grades, teacherDirectory]);
 
-const gradeDirectory = useMemo(() => {
-  return new Map<number, Grade>(
-    normalizedGrades.map((grade) => [
-      Number(grade.id),
-      grade,
-    ])
-  );
-}, [normalizedGrades]);
-
-const normalizedStudents = useMemo<Student[]>(() => {
-  return students.map((student) => {
-    const nestedGrade =
-      student.grado ?? student.Grado ?? null;
-
-    const gradeId = Number(
-      student.gradoId ?? nestedGrade?.id ?? 0
+  const gradeDirectory = useMemo(() => {
+    return new Map<number, Grade>(
+      normalizedGrades.map((grade) => [Number(grade.id), grade]),
     );
+  }, [normalizedGrades]);
 
-    const resolvedGrade =
-      gradeDirectory.get(gradeId) ??
-      nestedGrade ??
-      null;
+  const normalizedStudents = useMemo<Student[]>(() => {
+    return students.map((student) => {
+      const nestedGrades = [
+        ...(student.grados ?? []),
+        ...(student.Grados ?? []),
+        ...(student.grado ? [student.grado] : []),
+        ...(student.Grado ? [student.Grado] : []),
+      ];
 
-    if (!resolvedGrade) {
+      const nestedGradeDirectory = new Map<number, Grade>(
+        nestedGrades.map((grade) => [Number(grade.id), grade]),
+      );
+
+      const gradeIds = getStudentGradeIds(student);
+
+      const resolvedGrades = gradeIds
+        .map((gradeId): Grade | null => {
+          const resolvedGrade =
+            gradeDirectory.get(gradeId) ??
+            nestedGradeDirectory.get(gradeId) ??
+            null;
+
+          if (!resolvedGrade) {
+            return null;
+          }
+
+          const nestedTeacher =
+            resolvedGrade.maestro ?? resolvedGrade.Maestro ?? null;
+
+          const teacherId = Number(resolvedGrade.maestroId);
+
+          const resolvedTeacher =
+            nestedTeacher ??
+            (teacherId > 0 ? (teacherDirectory.get(teacherId) ?? null) : null);
+
+          return {
+            ...resolvedGrade,
+            maestro: resolvedTeacher,
+          };
+        })
+        .filter((grade): grade is Grade => grade !== null)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
       return {
         ...student,
-        grado: null,
+        gradoIds: resolvedGrades.map((grade) => Number(grade.id)),
+        grados: resolvedGrades,
+        // Se conservan para no romper vistas antiguas durante la migración.
+        gradoId: student.gradoId ?? resolvedGrades[0]?.id ?? null,
+        grado: resolvedGrades[0] ?? null,
       };
-    }
+    });
+  }, [students, gradeDirectory, teacherDirectory]);
 
-    const nestedTeacher =
-      resolvedGrade.maestro ??
-      resolvedGrade.Maestro ??
-      null;
-
-    const teacherId = Number(
-      resolvedGrade.maestroId
+  const assignableGrades = useMemo(() => {
+    const gradesWithTeacher = normalizedGrades.filter(
+      (grade) => Boolean(grade.maestro) || Number(grade.maestroId) > 0,
     );
 
-    const resolvedTeacher =
-      nestedTeacher ??
-      (teacherId > 0
-        ? teacherDirectory.get(teacherId) ?? null
-        : null);
-
-    return {
-      ...student,
-      gradoId: student.gradoId ?? resolvedGrade.id,
-      grado: {
-        ...resolvedGrade,
-        maestro: resolvedTeacher,
-      },
-    };
-  });
-}, [students, gradeDirectory, teacherDirectory]);
-
-const assignableGrades = useMemo(() => {
-  const gradesWithTeacher = normalizedGrades.filter(
-    (grade) =>
-      Boolean(grade.maestro) ||
-      Number(grade.maestroId) > 0
-  );
-
-  if (!isTeacher) {
-    return gradesWithTeacher;
-  }
-
-  return gradesWithTeacher.filter((grade) => {
-    const sameId =
-      Number(grade.maestroId) === Number(user?.id) ||
-      Number(grade.maestro?.id) === Number(user?.id);
-
-    const sameUuid =
-      Boolean(user?.uuid) &&
-      grade.maestro?.uuid === user?.uuid;
-
-    return sameId || sameUuid;
-  });
-}, [normalizedGrades, isTeacher, user]);
-
-const teachers = useMemo(() => {
-  const teacherMap = new Map<number, Teacher>();
-
-  normalizedGrades.forEach((grade) => {
-    if (grade.maestro) {
-      teacherMap.set(
-        Number(grade.maestro.id),
-        grade.maestro
-      );
+    if (!isTeacher) {
+      return gradesWithTeacher;
     }
-  });
 
-  return Array.from(teacherMap.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-}, [normalizedGrades]);
+    return gradesWithTeacher.filter((grade) => {
+      const sameId =
+        Number(grade.maestroId) === Number(user?.id) ||
+        Number(grade.maestro?.id) === Number(user?.id);
 
-const visibleStudents = useMemo(() => {
-  if (!isTeacher) {
-    return normalizedStudents;
-  }
+      const sameUuid =
+        Boolean(user?.uuid) && grade.maestro?.uuid === user?.uuid;
 
-  return normalizedStudents.filter((student) => {
-    const sameId =
-      Number(student.grado?.maestroId) ===
-        Number(user?.id) ||
-      Number(student.grado?.maestro?.id) ===
-        Number(user?.id);
+      return sameId || sameUuid;
+    });
+  }, [normalizedGrades, isTeacher, user]);
 
-    const sameUuid =
-      Boolean(user?.uuid) &&
-      student.grado?.maestro?.uuid === user?.uuid;
+  const teachers = useMemo(() => {
+    const teacherMap = new Map<number, Teacher>();
 
-    return sameId || sameUuid;
-  });
-}, [normalizedStudents, isTeacher, user]);
+    normalizedGrades.forEach((grade) => {
+      if (grade.maestro) {
+        teacherMap.set(Number(grade.maestro.id), grade.maestro);
+      }
+    });
 
+    return Array.from(teacherMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [normalizedGrades]);
+
+  const visibleStudents = useMemo(() => {
+    if (!isTeacher) {
+      return normalizedStudents;
+    }
+
+    return normalizedStudents.filter((student) => {
+      return (student.grados ?? []).some((grade) => {
+        const sameId =
+          Number(grade.maestroId) === Number(user?.id) ||
+          Number(grade.maestro?.id) === Number(user?.id);
+
+        const sameUuid =
+          Boolean(user?.uuid) && grade.maestro?.uuid === user?.uuid;
+
+        return sameId || sameUuid;
+      });
+    });
+  }, [normalizedStudents, isTeacher, user]);
 
   const filteredStudents = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
     return visibleStudents.filter((student) => {
-      const fullName = `${student.nombre || ''} ${
-        student.apellido || ''
+      const fullName = `${student.nombre || ""} ${
+        student.apellido || ""
       }`.toLowerCase();
 
       const matchesSearch =
         !normalizedSearch ||
         fullName.includes(normalizedSearch) ||
         student.matricula?.toLowerCase().includes(normalizedSearch) ||
-        student.grado?.nombre?.toLowerCase().includes(normalizedSearch) ||
-        student.grado?.maestro?.name
-          ?.toLowerCase()
-          .includes(normalizedSearch);
+        (student.grados ?? []).some(
+          (grade) =>
+            grade.nombre.toLowerCase().includes(normalizedSearch) ||
+            grade.maestro?.name?.toLowerCase().includes(normalizedSearch),
+        );
 
-      const studentGradeId =
-  student.gradoId ?? student.grado?.id;
+      const matchesGrade =
+        !gradeFilter ||
+        (student.grados ?? []).some(
+          (grade) => String(grade.id) === gradeFilter,
+        );
 
-const studentTeacherId =
-  student.grado?.maestroId ??
-  student.grado?.maestro?.id;
-
-const matchesGrade =
-  !gradeFilter ||
-  String(studentGradeId) === gradeFilter;
-
-const matchesTeacher =
-  !teacherFilter ||
-  String(studentTeacherId) === teacherFilter;
+      const matchesTeacher =
+        !teacherFilter ||
+        (student.grados ?? []).some(
+          (grade) =>
+            String(grade.maestroId ?? grade.maestro?.id) === teacherFilter,
+        );
 
       return matchesSearch && matchesGrade && matchesTeacher;
     });
-  }, [
-    visibleStudents,
-    search,
-    gradeFilter,
-    teacherFilter,
-  ]);
+  }, [visibleStudents, search, gradeFilter, teacherFilter]);
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredStudents.length / itemsPerPage)
+    Math.ceil(filteredStudents.length / itemsPerPage),
   );
 
   const currentData = useMemo(() => {
@@ -356,11 +361,13 @@ const matchesTeacher =
 
   const handleOpenCreate = () => {
     setEditingStudent(null);
+    setSelectedGradeIds([]);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (student: Student) => {
     setEditingStudent(student);
+    setSelectedGradeIds(getStudentGradeIds(student));
     setIsModalOpen(true);
   };
 
@@ -369,52 +376,57 @@ const matchesTeacher =
 
     setIsModalOpen(false);
     setEditingStudent(null);
+    setSelectedGradeIds([]);
   };
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const toggleGrade = (gradeId: number) => {
+    setSelectedGradeIds((currentIds) =>
+      currentIds.includes(gradeId)
+        ? currentIds.filter((id) => id !== gradeId)
+        : [...currentIds, gradeId],
+    );
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
-    const selectedUserId = String(formData.get('userId') || '');
+    const selectedUserId = String(formData.get("userId") || "");
 
     const selectedUser = availableUsers.find(
-      (candidate) => String(candidate.id) === selectedUserId
+      (candidate) => String(candidate.id) === selectedUserId,
     );
 
-    const gradoId = Number(formData.get('gradoId'));
-
-    const selectedGrade = assignableGrades.find(
-      (grade) => Number(grade.id) === gradoId
+    const validSelectedGrades = assignableGrades.filter((grade) =>
+      selectedGradeIds.includes(Number(grade.id)),
     );
 
-    if (!selectedGrade) {
+    if (
+      selectedGradeIds.length === 0 ||
+      validSelectedGrades.length !== selectedGradeIds.length
+    ) {
       alert(
-        'Selecciona un grupo que tenga un maestro responsable asignado.'
+        "Selecciona al menos un grupo válido que tenga maestro responsable.",
       );
       return;
     }
 
     const payload: Record<string, unknown> = {
-      matricula: String(formData.get('matricula') || '').trim(),
-      tutor: String(formData.get('tutor') || '').trim(),
-      gradoId,
+      matricula: String(formData.get("matricula") || "").trim(),
+      tutor: String(formData.get("tutor") || "").trim(),
+      gradoIds: selectedGradeIds,
     };
 
     if (!editingStudent) {
       if (!selectedUser) {
-        alert('Selecciona el usuario que será vinculado como alumno.');
+        alert("Selecciona el usuario que será vinculado como alumno.");
         return;
       }
 
-      const nameParts = selectedUser.name
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
+      const nameParts = selectedUser.name.trim().split(/\s+/).filter(Boolean);
 
       payload.nombre = nameParts[0] || selectedUser.name;
-      payload.apellido = nameParts.slice(1).join(' ') || '';
+      payload.apellido = nameParts.slice(1).join(" ") || "";
       payload.userId = selectedUser.id;
       payload.email = selectedUser.email;
     }
@@ -424,21 +436,23 @@ const matchesTeacher =
 
       if (editingStudent) {
         await studentService.update(editingStudent.uuid, payload);
-        alert('Alumno actualizado correctamente.');
+        alert("Alumno actualizado correctamente.");
       } else {
         await studentService.create(payload);
-        alert('Usuario vinculado como alumno correctamente.');
+        alert("Usuario vinculado como alumno correctamente.");
       }
 
-      handleCloseModal();
+      setIsModalOpen(false);
+      setEditingStudent(null);
+      setSelectedGradeIds([]);
       await loadData();
     } catch (error) {
-      console.error('Error guardando alumno:', error);
+      console.error("Error guardando alumno:", error);
 
       alert(
         error instanceof Error
           ? error.message
-          : 'No fue posible guardar el alumno.'
+          : "No fue posible guardar el alumno.",
       );
     } finally {
       setSaving(false);
@@ -447,7 +461,7 @@ const matchesTeacher =
 
   const handleDelete = async (student: Student) => {
     const confirmed = window.confirm(
-      `¿Estás seguro de eliminar a ${student.nombre} ${student.apellido}?`
+      `¿Estás seguro de eliminar a ${student.nombre} ${student.apellido}?`,
     );
 
     if (!confirmed) return;
@@ -458,14 +472,14 @@ const matchesTeacher =
       await studentService.delete(student.uuid);
       await loadData();
 
-      alert('Alumno eliminado correctamente.');
+      alert("Alumno eliminado correctamente.");
     } catch (error) {
-      console.error('Error eliminando alumno:', error);
+      console.error("Error eliminando alumno:", error);
 
       alert(
         error instanceof Error
           ? error.message
-          : 'No fue posible eliminar el alumno.'
+          : "No fue posible eliminar el alumno.",
       );
     } finally {
       setDeletingUuid(null);
@@ -473,9 +487,9 @@ const matchesTeacher =
   };
 
   const clearFilters = () => {
-    setSearch('');
-    setGradeFilter('');
-    setTeacherFilter('');
+    setSearch("");
+    setGradeFilter("");
+    setTeacherFilter("");
     setCurrentPage(1);
   };
 
@@ -491,8 +505,8 @@ const matchesTeacher =
 
               <p className="mt-1 text-sm text-gray-500">
                 {isTeacher
-                  ? 'Alumnos pertenecientes a los grupos que tienes asignados.'
-                  : 'Administra los alumnos, sus grupos y maestros responsables.'}
+                  ? "Alumnos pertenecientes a los grupos que tienes asignados."
+                  : "Administra los alumnos, sus grupos y maestros responsables."}
               </p>
             </div>
 
@@ -527,12 +541,9 @@ const matchesTeacher =
             <p className="mt-2 text-3xl font-bold text-blue-700">
               {
                 new Set(
-                  visibleStudents
-                    .map(
-                        (student) =>
-                          student.gradoId ?? student.grado?.id
-                      )
-                    .filter(Boolean)
+                  visibleStudents.flatMap((student) =>
+                    getStudentGradeIds(student),
+                  ),
                 ).size
               }
             </p>
@@ -564,8 +575,8 @@ const matchesTeacher =
               onChange={(event) => setGradeFilter(event.target.value)}
               options={[
                 {
-                  label: 'Todos los grupos',
-                  value: '',
+                  label: "Todos los grupos",
+                  value: "",
                 },
                 ...assignableGrades.map((grade) => ({
                   label: grade.nombre,
@@ -578,13 +589,11 @@ const matchesTeacher =
               <Select
                 label="Filtrar por maestro"
                 value={teacherFilter}
-                onChange={(event) =>
-                  setTeacherFilter(event.target.value)
-                }
+                onChange={(event) => setTeacherFilter(event.target.value)}
                 options={[
                   {
-                    label: 'Todos los maestros',
-                    value: '',
+                    label: "Todos los maestros",
+                    value: "",
                   },
                   ...teachers.map((teacher) => ({
                     label: teacher.name,
@@ -629,48 +638,82 @@ const matchesTeacher =
                 <Table
                   columns={[
                     {
-                      key: 'matricula',
-                      header: 'Matrícula',
+                      key: "matricula",
+                      header: "Matrícula",
                     },
                     {
-                      key: 'nombre',
-                      header: 'Alumno',
+                      key: "nombre",
+                      header: "Alumno",
                       render: (student: Student) =>
                         `${student.nombre} ${student.apellido}`,
                     },
                     {
-                      key: 'grado',
-                      header: 'Grupo',
+                      key: "grados",
+                      header: "Grupos",
                       render: (student: Student) =>
-                        student.grado?.nombre || 'Sin grupo',
-                    },
-                    {
-                      key: 'maestro',
-                      header: 'Maestro responsable',
-                      render: (student: Student) =>
-                        student.grado?.maestro?.name || (
-                          <span className="text-amber-700">
-                            Sin maestro
-                          </span>
+                        (student.grados?.length ?? 0) > 0 ? (
+                          <div className="flex max-w-sm flex-wrap gap-1">
+                            {student.grados?.map((grade) => (
+                              <span
+                                key={grade.id}
+                                className="inline-flex rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700"
+                              >
+                                {grade.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-amber-700">Sin grupos</span>
                         ),
                     },
                     {
-                      key: 'estado',
-                      header: 'Estado',
-                      render: (student: Student) =>
-                        student.grado?.maestro ? (
+                      key: "maestros",
+                      header: "Maestros responsables",
+                      render: (student: Student) => {
+                        const studentTeachers = Array.from(
+                          new Map(
+                            (student.grados ?? [])
+                              .filter((grade) => grade.maestro)
+                              .map((grade) => [
+                                Number(grade.maestro!.id),
+                                grade.maestro!,
+                              ]),
+                          ).values(),
+                        );
+
+                        return studentTeachers.length > 0 ? (
+                          <div className="space-y-1">
+                            {studentTeachers.map((teacher) => (
+                              <p key={teacher.id} className="text-sm">
+                                {teacher.name}
+                              </p>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-amber-700">Sin maestros</span>
+                        );
+                      },
+                    },
+                    {
+                      key: "estado",
+                      header: "Estado",
+                      render: (student: Student) => {
+                        const groupCount = student.grados?.length ?? 0;
+
+                        return groupCount > 0 ? (
                           <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                            Asignado
+                            {groupCount} {groupCount === 1 ? "grupo" : "grupos"}
                           </span>
                         ) : (
                           <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                             Sin asignar
                           </span>
-                        ),
+                        );
+                      },
                     },
                     {
-                      key: 'actions',
-                      header: 'Acciones',
+                      key: "actions",
+                      header: "Acciones",
                       render: (student: Student) =>
                         isAdmin ? (
                           <div className="flex gap-2">
@@ -690,8 +733,8 @@ const matchesTeacher =
                               onClick={() => handleDelete(student)}
                             >
                               {deletingUuid === student.uuid
-                                ? 'Eliminando...'
-                                : 'Eliminar'}
+                                ? "Eliminando..."
+                                : "Eliminar"}
                             </Button>
                           </div>
                         ) : (
@@ -722,31 +765,57 @@ const matchesTeacher =
                         </p>
                       </div>
 
-                    {student.grado?.maestro ? (
-  <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-    Asignado
-  </span>
-) : (
-  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
-    Sin asignar
-  </span>
-)}
+                      {(student.grados?.length ?? 0) > 0 ? (
+                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                          {student.grados?.length}{" "}
+                          {student.grados?.length === 1 ? "grupo" : "grupos"}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+                          Sin asignar
+                        </span>
+                      )}
                     </div>
 
                     <div className="mt-4 space-y-2 text-sm">
-                      <p>
-                        <span className="font-semibold">Grupo:</span>{' '}
-                        {student.grado?.nombre || 'Sin grupo'}
-                      </p>
+                      <div>
+                        <span className="font-semibold">Grupos:</span>
+
+                        {(student.grados?.length ?? 0) > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {student.grados?.map((grade) => (
+                              <span
+                                key={grade.id}
+                                className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700"
+                              >
+                                {grade.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="ml-1">Sin grupos</span>
+                        )}
+                      </div>
+
+                      <div>
+                        <span className="font-semibold">Maestros:</span>
+
+                        {(student.grados?.length ?? 0) > 0 ? (
+                          <ul className="mt-1 space-y-1 text-gray-600">
+                            {student.grados?.map((grade) => (
+                              <li key={grade.id}>
+                                {grade.nombre}:{" "}
+                                {grade.maestro?.name || "Sin maestro asignado"}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="ml-1">Sin maestros asignados</span>
+                        )}
+                      </div>
 
                       <p>
-                        <span className="font-semibold">Maestro:</span>{' '}
-                        {student.grado?.maestro?.name ||
-                          'Sin maestro asignado'}
-                      </p>
-
-                      <p>
-                        <span className="font-semibold">Tutor:</span>{' '}
+                        <span className="font-semibold">Tutor:</span>{" "}
                         {student.tutor}
                       </p>
                     </div>
@@ -769,8 +838,8 @@ const matchesTeacher =
                           onClick={() => handleDelete(student)}
                         >
                           {deletingUuid === student.uuid
-                            ? 'Eliminando...'
-                            : 'Eliminar'}
+                            ? "Eliminando..."
+                            : "Eliminar"}
                         </Button>
                       </div>
                     )}
@@ -793,21 +862,16 @@ const matchesTeacher =
       <Modal
         open={isModalOpen}
         onClose={handleCloseModal}
-        title={
-          editingStudent
-            ? 'Editar alumno'
-            : 'Vincular nuevo alumno'
-        }
+        title={editingStudent ? "Editar alumno" : "Vincular nuevo alumno"}
       >
         <form
-          key={editingStudent?.uuid || 'new-student'}
+          key={editingStudent?.uuid || "new-student"}
           onSubmit={handleSubmit}
           className="space-y-4 p-4"
         >
           {editingStudent && (
             <div className="rounded bg-gray-100 p-3 text-sm font-semibold text-gray-700">
-              Alumno: {editingStudent.nombre}{' '}
-              {editingStudent.apellido}
+              Alumno: {editingStudent.nombre} {editingStudent.apellido}
             </div>
           )}
 
@@ -818,8 +882,8 @@ const matchesTeacher =
               required
               options={[
                 {
-                  label: 'Selecciona un usuario alumno',
-                  value: '',
+                  label: "Selecciona un usuario alumno",
+                  value: "",
                 },
                 ...availableUsers.map((studentUser) => ({
                   label: `${studentUser.name} — ${studentUser.email}`,
@@ -832,60 +896,99 @@ const matchesTeacher =
           <Input
             label="Matrícula"
             name="matricula"
-            defaultValue={editingStudent?.matricula || ''}
+            defaultValue={editingStudent?.matricula || ""}
             required
           />
 
           <Input
             label="Tutor"
             name="tutor"
-            defaultValue={editingStudent?.tutor || ''}
+            defaultValue={editingStudent?.tutor || ""}
             required
           />
 
-          <Select
-            label="Grupo / grado"
-            name="gradoId"
-            required
-            defaultValue={
-              editingStudent?.gradoId
-                ? String(editingStudent.gradoId)
-                : ''
-            }
-            options={[
-              {
-                label: 'Selecciona un grupo',
-                value: '',
-              },
-              ...assignableGrades.map((grade) => ({
-                label: `${grade.nombre} — ${
-                  grade.maestro?.name || 'Sin maestro'
-                }`,
-                value: String(grade.id),
-              })),
-            ]}
-          />
+          <fieldset>
+            <legend className="mb-2 block text-sm font-medium text-gray-700">
+              Grupos / grados
+            </legend>
+
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-300 p-3">
+              {assignableGrades.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No hay grupos disponibles.
+                </p>
+              ) : (
+                assignableGrades.map((grade) => {
+                  const gradeId = Number(grade.id);
+                  const checked = selectedGradeIds.includes(gradeId);
+
+                  return (
+                    <label
+                      key={grade.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                        checked
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleGrade(gradeId)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-red-900 focus:ring-red-800"
+                      />
+
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-gray-800">
+                          {grade.nombre}
+                        </span>
+
+                        <span className="block text-xs text-gray-500">
+                          Maestro:{" "}
+                          {grade.maestro?.name || "Sin maestro asignado"}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              {selectedGradeIds.length === 0
+                ? "Selecciona al menos un grupo."
+                : `${selectedGradeIds.length} ${
+                    selectedGradeIds.length === 1
+                      ? "grupo seleccionado"
+                      : "grupos seleccionados"
+                  }.`}
+            </p>
+          </fieldset>
 
           {assignableGrades.length === 0 && (
             <p className="rounded bg-amber-50 p-3 text-sm text-amber-700">
-              No hay grupos disponibles con un maestro asignado. Primero
-              asigna un maestro desde Gestión de Grupos.
+              No hay grupos disponibles con un maestro asignado. Primero asigna
+              un maestro desde Gestión de Grupos.
             </p>
           )}
 
           <Button
             type="submit"
             className="w-full bg-red-900 text-white hover:bg-red-800"
-            disabled={saving || assignableGrades.length === 0}
+            disabled={
+              saving ||
+              assignableGrades.length === 0 ||
+              selectedGradeIds.length === 0
+            }
           >
             {saving
-              ? 'Procesando...'
+              ? "Procesando..."
               : editingStudent
-                ? 'Actualizar datos'
-                : 'Vincular y guardar'}
+                ? "Actualizar datos"
+                : "Vincular y guardar"}
           </Button>
         </form>
       </Modal>
     </AppLayout>
-  );
+      );
 }
