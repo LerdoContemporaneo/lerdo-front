@@ -408,29 +408,91 @@ export const reportService = {
   }
 };
 
-// --- TAREAS ---
+type HomeworkPayload = {
+  titulo: string;
+  descripcion: string;
+  fechaAsignacion: string;
+  fechaEntrega: string;
+  gradoId: number;
+};
+
 export const homeworkService = {
   getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/tareas`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
+    const res = await fetch(
+      `${BASE_URL}/tareas`,
+      fetchConfig
+    );
+
+    const data = await res.json().catch(() => []);
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'Error al obtener las tareas'
+      );
+    }
+
+    return ensureArray(data);
   },
-  create: async (data: any) => {
-      const res = await fetch(`${BASE_URL}/tareas`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
-      return res.json();
+
+  create: async (payload: HomeworkPayload) => {
+    const res = await fetch(`${BASE_URL}/tareas`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'Error al crear la tarea'
+      );
+    }
+
+    return data;
   },
-  update: async (uuid: string, data: any) => { // Tareas usa UUID o ID según tu base
-      const res = await fetch(`${BASE_URL}/tareas/${uuid}`, {
-          ...fetchConfig,
-          method: 'PATCH',
-          body: JSON.stringify(data)
-      });
-      if (!res.ok) throw new Error("Error actualizando tarea");
-      return res.json();
+
+  update: async (
+    uuid: string,
+    payload: HomeworkPayload
+  ) => {
+    const res = await fetch(
+      `${BASE_URL}/tareas/${uuid}`,
+      {
+        ...fetchConfig,
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'Error al actualizar la tarea'
+      );
+    }
+
+    return data;
   },
-  delete: async (id: number) => {
-      const res = await fetch(`${BASE_URL}/tareas/${id}`, { ...fetchConfig, method: 'DELETE'  });
-      return res.json();
-  }
+
+  delete: async (uuid: string) => {
+    const res = await fetch(
+      `${BASE_URL}/tareas/${uuid}`,
+      {
+        ...fetchConfig,
+        method: 'DELETE',
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || 'Error al eliminar la tarea'
+      );
+    }
+
+    return data;
+  },
 };
