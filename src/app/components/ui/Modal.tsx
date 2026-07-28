@@ -1,19 +1,93 @@
+"use client";
 
+import React, { useEffect } from "react";
 
-import React from 'react';
+type ModalSize = "sm" | "md" | "lg" | "xl";
 
+type ModalProps = {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children?: React.ReactNode;
+  size?: ModalSize;
+};
 
-export default function Modal({ open, onClose, title, children }: { open: boolean; onClose(): void; title?: string; children?: React.ReactNode }) {
-if (!open) return null;
-return (
-<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-<div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-4">
-<div className="flex justify-between items-center mb-4">
-<h3 className="text-lg font-medium">{title}</h3>
-<button onClick={onClose} className="text-gray-500">Cerrar</button>
-</div>
-<div>{children}</div>
-</div>
-</div>
-);
+const sizeClasses: Record<ModalSize, string> = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
+};
+
+export default function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  size = "lg",
+}: ModalProps) {
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const handleBackdropClick = (
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onMouseDown={handleBackdropClick}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? "modal-title" : undefined}
+        className={`flex max-h-[calc(100dvh-2rem)] w-full ${sizeClasses[size]} flex-col overflow-hidden rounded-lg bg-white shadow-xl`}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          {title && (
+            <h3
+              id="modal-title"
+              className="text-base font-semibold text-gray-900"
+            >
+              {title}
+            </h3>
+          )}
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto rounded-md px-3 py-1.5 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-4">{children}</div>
+      </div>
+    </div>
+  );
 }

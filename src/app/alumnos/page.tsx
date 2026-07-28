@@ -107,23 +107,29 @@ export default function StudentsPage() {
     try {
       setLoadingData(true);
 
-      const [studentsResponse, gradesResponse, usersResponse] =
-        await Promise.all([
+      const [studentsResult, gradesResult, usersResult] =
+        await Promise.allSettled([
           studentService.getAll(),
           gradeService.getAll(),
           userService.getAll(),
         ]);
 
-      const studentsData: Student[] = Array.isArray(studentsResponse)
-        ? studentsResponse
+      const studentsData: Student[] =
+        studentsResult.status === "fulfilled" &&
+        Array.isArray(studentsResult.value)
+        ? studentsResult.value
         : [];
 
-      const gradesData: Grade[] = Array.isArray(gradesResponse)
-        ? gradesResponse
+      const gradesData: Grade[] =
+        gradesResult.status === "fulfilled" &&
+        Array.isArray(gradesResult.value)
+        ? gradesResult.value
         : [];
 
-      const usersData: StudentUser[] = Array.isArray(usersResponse)
-        ? usersResponse
+      const usersData: StudentUser[] =
+        usersResult.status === "fulfilled" &&
+        Array.isArray(usersResult.value)
+        ? usersResult.value
         : [];
 
       setStudents(studentsData);
@@ -143,9 +149,52 @@ export default function StudentsPage() {
       );
 
       setAvailableUsers(unlinkedStudentUsers);
+
+      const loadErrors: string[] = [];
+
+      if (studentsResult.status === "rejected") {
+        loadErrors.push(
+          `Alumnos: ${
+            studentsResult.reason instanceof Error
+              ? studentsResult.reason.message
+              : "error desconocido"
+          }`,
+        );
+      }
+
+      if (gradesResult.status === "rejected") {
+        loadErrors.push(
+          `Grupos: ${
+            gradesResult.reason instanceof Error
+              ? gradesResult.reason.message
+              : "error desconocido"
+          }`,
+        );
+      }
+
+      if (usersResult.status === "rejected") {
+        loadErrors.push(
+          `Usuarios: ${
+            usersResult.reason instanceof Error
+              ? usersResult.reason.message
+              : "error desconocido"
+          }`,
+        );
+      }
+
+      if (loadErrors.length > 0) {
+        console.error("Errores al cargar la página:", loadErrors);
+        alert(
+          `La información se cargó parcialmente:\n\n${loadErrors.join("\n")}`,
+        );
+      }
     } catch (error) {
       console.error("Error cargando alumnos:", error);
-      alert("No fue posible cargar la información de alumnos.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No fue posible cargar la información de alumnos.",
+      );
     } finally {
       setLoadingData(false);
     }
@@ -516,7 +565,7 @@ export default function StudentsPage() {
                 onClick={handleOpenCreate}
                 className="bg-red-900 text-white hover:bg-red-800"
               >
-                + Nuevo alumno
+                + Vincular usuario alumno
               </Button>
             )}
           </div>
@@ -722,7 +771,7 @@ export default function StudentsPage() {
                               className="bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100"
                               onClick={() => handleOpenEdit(student)}
                             >
-                              Editar
+                              Editar grupos
                             </Button>
 
                             <Button
@@ -827,7 +876,7 @@ export default function StudentsPage() {
                           className="flex-1 bg-blue-50 text-blue-700"
                           onClick={() => handleOpenEdit(student)}
                         >
-                          Editar
+                          Editar grupos
                         </Button>
 
                         <Button
@@ -863,132 +912,155 @@ export default function StudentsPage() {
         open={isModalOpen}
         onClose={handleCloseModal}
         title={editingStudent ? "Editar alumno" : "Vincular nuevo alumno"}
+        size="md"
       >
         <form
           key={editingStudent?.uuid || "new-student"}
           onSubmit={handleSubmit}
-          className="space-y-4 p-4"
+          className="space-y-3"
         >
           {editingStudent && (
-            <div className="rounded bg-gray-100 p-3 text-sm font-semibold text-gray-700">
+            <div className="rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
               Alumno: {editingStudent.nombre} {editingStudent.apellido}
             </div>
           )}
 
           {!editingStudent && (
-            <Select
-              label="Seleccionar usuario"
-              name="userId"
-              required
-              options={[
-                {
-                  label: "Selecciona un usuario alumno",
-                  value: "",
-                },
-                ...availableUsers.map((studentUser) => ({
-                  label: `${studentUser.name} — ${studentUser.email}`,
-                  value: String(studentUser.id),
-                })),
-              ]}
-            />
-          )}
-
-          <Input
-            label="Matrícula"
-            name="matricula"
-            defaultValue={editingStudent?.matricula || ""}
-            required
-          />
-
-          <Input
-            label="Tutor"
-            name="tutor"
-            defaultValue={editingStudent?.tutor || ""}
-            required
-          />
-
-          <fieldset>
-            <legend className="mb-2 block text-sm font-medium text-gray-700">
-              Grupos / grados
-            </legend>
-
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-300 p-3">
-              {assignableGrades.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No hay grupos disponibles.
-                </p>
+            <>
+              {availableUsers.length > 0 ? (
+                <Select
+                  label="Usuario alumno sin vincular"
+                  name="userId"
+                  required
+                  options={[
+                    {
+                      label: "Selecciona un usuario alumno",
+                      value: "",
+                    },
+                    ...availableUsers.map((studentUser) => ({
+                      label: `${studentUser.name} — ${studentUser.email}`,
+                      value: String(studentUser.id),
+                    })),
+                  ]}
+                />
               ) : (
-                assignableGrades.map((grade) => {
-                  const gradeId = Number(grade.id);
-                  const checked = selectedGradeIds.includes(gradeId);
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  <p className="font-semibold">
+                    No hay usuarios alumno pendientes de vincular.
+                  </p>
 
-                  return (
-                    <label
-                      key={grade.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
-                        checked
-                          ? "border-red-300 bg-red-50"
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleGrade(gradeId)}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-red-900 focus:ring-red-800"
-                      />
-
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-gray-800">
-                          {grade.nombre}
-                        </span>
-
-                        <span className="block text-xs text-gray-500">
-                          Maestro:{" "}
-                          {grade.maestro?.name || "Sin maestro asignado"}
-                        </span>
-                      </span>
-                    </label>
-                  );
-                })
+                  <p className="mt-1 text-xs leading-5">
+                    Los alumnos de la tabla ya tienen un perfil. Para
+                    asignarles más grupos, cierra esta ventana y selecciona
+                    <strong> Editar grupos</strong>.
+                  </p>
+                </div>
               )}
-            </div>
-
-            <p className="mt-2 text-xs text-gray-500">
-              {selectedGradeIds.length === 0
-                ? "Selecciona al menos un grupo."
-                : `${selectedGradeIds.length} ${
-                    selectedGradeIds.length === 1
-                      ? "grupo seleccionado"
-                      : "grupos seleccionados"
-                  }.`}
-            </p>
-          </fieldset>
-
-          {assignableGrades.length === 0 && (
-            <p className="rounded bg-amber-50 p-3 text-sm text-amber-700">
-              No hay grupos disponibles con un maestro asignado. Primero asigna
-              un maestro desde Gestión de Grupos.
-            </p>
+            </>
           )}
 
-          <Button
-            type="submit"
-            className="w-full bg-red-900 text-white hover:bg-red-800"
-            disabled={
-              saving ||
-              assignableGrades.length === 0 ||
-              selectedGradeIds.length === 0
-            }
-          >
-            {saving
-              ? "Procesando..."
-              : editingStudent
-                ? "Actualizar datos"
-                : "Vincular y guardar"}
-          </Button>
+          {(editingStudent || availableUsers.length > 0) && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Matrícula"
+                  name="matricula"
+                  defaultValue={editingStudent?.matricula || ""}
+                  required
+                />
+
+                <Input
+                  label="Tutor"
+                  name="tutor"
+                  defaultValue={editingStudent?.tutor || ""}
+                  required
+                />
+              </div>
+
+              <fieldset>
+                <legend className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Grupos / grados
+                </legend>
+
+                <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-md border border-gray-300 p-2">
+                  {assignableGrades.length === 0 ? (
+                    <p className="p-2 text-sm text-gray-500">
+                      No hay grupos disponibles.
+                    </p>
+                  ) : (
+                    assignableGrades.map((grade) => {
+                      const gradeId = Number(grade.id);
+                      const checked = selectedGradeIds.includes(gradeId);
+
+                      return (
+                        <label
+                          key={grade.id}
+                          className={`flex cursor-pointer items-start gap-2.5 rounded-md border px-2.5 py-2 transition ${
+                            checked
+                              ? "border-red-300 bg-red-50"
+                              : "border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleGrade(gradeId)}
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-red-900 focus:ring-red-800"
+                          />
+
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold leading-5 text-gray-800">
+                              {grade.nombre}
+                            </span>
+
+                            <span className="block truncate text-xs text-gray-500">
+                              Maestro:{" "}
+                              {grade.maestro?.name || "Sin maestro asignado"}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+
+                <p className="mt-1.5 text-xs text-gray-500">
+                  {selectedGradeIds.length === 0
+                    ? "Selecciona al menos un grupo."
+                    : `${selectedGradeIds.length} ${
+                        selectedGradeIds.length === 1
+                          ? "grupo seleccionado"
+                          : "grupos seleccionados"
+                      }.`}
+                </p>
+              </fieldset>
+
+              {assignableGrades.length === 0 && (
+                <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  No hay grupos disponibles con un maestro asignado. Primero
+                  asigna un maestro desde Gestión de Grupos.
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-red-900 text-white hover:bg-red-800"
+                disabled={
+                  saving ||
+                  assignableGrades.length === 0 ||
+                  selectedGradeIds.length === 0
+                }
+              >
+                {saving
+                  ? "Procesando..."
+                  : editingStudent
+                    ? "Actualizar datos"
+                    : "Vincular y guardar"}
+              </Button>
+            </>
+          )}
         </form>
       </Modal>
     </AppLayout>
-      );
+  );
 }

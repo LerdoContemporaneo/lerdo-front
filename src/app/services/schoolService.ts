@@ -14,11 +14,16 @@ const ensureArray = (result: any) => {
 // --- USUARIOS ---
 export const userService = {
   getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/users`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
-  },
+  const res = await fetch(`${BASE_URL}/users`, fetchConfig);
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data?.msg || `No fue posible obtener los usuarios (${res.status})`
+    );
+  }
+  return ensureArray(data);
+},
   create: async (data: any) => {
     const payload = {
       ...data,
@@ -62,19 +67,18 @@ delete: async (uuid: string) => {
 
 // --- ALUMNOS ---
 export const studentService = {
-  getAll: async () => {
-    try {
-      const res = await fetch(
-        `${BASE_URL}/alumnos`,
-        fetchConfig
-      );
+getAll: async () => {
+  const res = await fetch(`${BASE_URL}/alumnos`, fetchConfig);
+  const data = await res.json().catch(() => ({}));
 
-      return ensureArray(await res.json());
-    } catch (error) {
-      console.error('Error obteniendo alumnos:', error);
-      return [];
-    }
-  },
+  if (!res.ok) {
+    throw new Error(
+      data?.msg || `No fue posible obtener los alumnos (${res.status})`
+    );
+  }
+
+  return ensureArray(data);
+},
 
   create: async (data: Record<string, unknown>) => {
     const res = await fetch(`${BASE_URL}/alumnos`, {
