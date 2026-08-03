@@ -5,6 +5,8 @@ import { useAuth } from '../hooks/useAuth';
 import Button from './ui/Button';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation'; // Para saber en qué página estamos
+import { getRoleHomePath } from '../lib/authRoutes';
+import type { UserRole } from '../types/auth';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { logout, user } = useAuth(); 
@@ -13,14 +15,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Estado para el menú hamburguesa en celulares
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const dashboardHref = user ? getRoleHomePath(user.role) : '/';
+
   // 👇 LISTA INTELIGENTE DE RUTAS POR ROLES 👇
-  const allNavLinks = [
-    { name: 'Dashboard', href: '/', roles: ['administrador', 'maestro', 'alumno'] },
+  const allNavLinks: Array<{
+    name: string;
+    href: string;
+    roles: UserRole[];
+  }> = [
+    { name: 'Dashboard', href: dashboardHref, roles: ['administrador', 'maestro', 'alumno'] },
     { name: 'Administración', href: '/admin', roles: ['administrador'] },
     //corregir nombre y logica de esta pagina
     //{ name: 'Maestros', href: '/teachers', roles: ['administrador', 'maestro'] },
     { name: 'Mi Perfil', href: '/me/alumno', roles: ['alumno'] },
-    { name: 'Mi Grupo', href: '/me/maestro', roles: ['maestro'] },
+    { name: 'Mis grupos', href: '/me/maestro', roles: ['maestro'] },
     { name: 'Panel de Control', href: '/admin/me', roles: ['administrador'] },
     { name: 'Asistencia', href: '/asistencias', roles: ['administrador', 'maestro'] },
     { name: 'Soporte', href: '/soporte', roles: ['administrador', 'maestro'] },
@@ -28,6 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'maestro'] },
     { name: 'Tareas', href: '/tareas', roles: ['administrador', 'maestro'] },
     { name: 'Reportes', href: '/reportes', roles: ['administrador', 'maestro'] },
+    { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'maestro'] },
   ];
 
   // Filtramos los enlaces para mostrar SOLO los que el usuario tiene permiso de ver

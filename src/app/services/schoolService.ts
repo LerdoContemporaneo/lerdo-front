@@ -147,12 +147,11 @@ getAll: async () => {
 export const gradeService = {
   getAll: async () => {
     const res = await fetch(`${BASE_URL}/grados`, fetchConfig);
-
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(
-        data.msg || 'Error al obtener los grupos'
+        data.msg || `Error al obtener los grupos (${res.status})`
       );
     }
 
@@ -165,7 +164,7 @@ export const gradeService = {
   }) => {
     const res = await fetch(`${BASE_URL}/grados`, {
       ...fetchConfig,
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
     });
 
@@ -173,7 +172,8 @@ export const gradeService = {
 
     if (!res.ok) {
       throw new Error(
-        responseData.msg || 'Error al crear el grupo'
+        responseData.msg ||
+          `Error al crear el grupo (${res.status})`
       );
     }
 
@@ -189,7 +189,7 @@ export const gradeService = {
   ) => {
     const res = await fetch(`${BASE_URL}/grados/${uuid}`, {
       ...fetchConfig,
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(data),
     });
 
@@ -197,7 +197,33 @@ export const gradeService = {
 
     if (!res.ok) {
       throw new Error(
-        responseData.msg || 'Error al actualizar el grupo'
+        responseData.msg ||
+          `Error al actualizar el grupo (${res.status})`
+      );
+    }
+
+    return responseData;
+  },
+
+  replaceStudents: async (
+    uuid: string,
+    alumnoIds: number[]
+  ) => {
+    const res = await fetch(
+      `${BASE_URL}/grados/${uuid}/alumnos`,
+      {
+        ...fetchConfig,
+        method: "PUT",
+        body: JSON.stringify({ alumnoIds }),
+      }
+    );
+
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.msg ||
+          `No fue posible actualizar los alumnos (${res.status})`
       );
     }
 
@@ -207,21 +233,21 @@ export const gradeService = {
   delete: async (uuid: string) => {
     const res = await fetch(`${BASE_URL}/grados/${uuid}`, {
       ...fetchConfig,
-      method: 'DELETE',
+      method: "DELETE",
     });
 
     const responseData = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(
-        responseData.msg || 'Error al eliminar el grupo'
+        responseData.msg ||
+          `Error al eliminar el grupo (${res.status})`
       );
     }
 
     return responseData;
   },
 };
-
 // --- INCIDENCIAS ---
 export const incidentService = {
   getAll: async () => {

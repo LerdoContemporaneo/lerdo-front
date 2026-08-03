@@ -10,7 +10,11 @@ import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { gradeService, userService } from '../services/schoolService';
+import {
+  gradeService,
+  studentService,
+  userService,
+} from '../services/schoolService';
 import { useAuth } from '../hooks/useAuth';
 
 const GROUPS_PER_PAGE = 10;
@@ -23,12 +27,28 @@ type Teacher = {
   role: string;
 };
 
+type StudentGrade = {
+  id: number;
+  uuid: string;
+  nombre: string;
+};
+
+type Student = {
+  id: number;
+  uuid: string;
+  nombre: string;
+  apellido: string;
+  matricula: string;
+  grados?: StudentGrade[];
+};
+
 type Group = {
   id: number;
   uuid: string;
   nombre: string;
   maestroId: number | null;
   maestro?: Teacher | null;
+  alumnos?: Student[];
 };
 
 const Alert = Swal.mixin({
@@ -43,12 +63,18 @@ export default function GroupsPage() {
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
+  const [rosterGroup, setRosterGroup] = useState<Group | null>(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [rosterSearch, setRosterSearch] = useState('');
 
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingRoster, setSavingRoster] = useState(false);
   const [deletingUuid, setDeletingUuid] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,25 +85,47 @@ export default function GroupsPage() {
     try {
       setLoadingData(true);
 
-      const [groupsData, usersData] = await Promise.all([
+      const [groupsData, usersData, studentsData] = await Promise.all([
         gradeService.getAll(),
-        userService.getAll(),
+        isAdmin ? userService.getAll() : Promise.resolve([]),
+        isAdmin ? studentService.getAll() : Promise.resolve([]),
       ]);
 
-      setGroups(Array.isArray(groupsData) ? groupsData : []);
+      const loadedGroups: Group[] = Array.isArray(groupsData)
+        ? groupsData
+        : [];
+
+      setGroups(loadedGroups);
+      setStudents(Array.isArray(studentsData) ? studentsData : []);
 
       const users = Array.isArray(usersData) ? usersData : [];
 
-      setTeachers(
-        users.filter((currentUser: Teacher) => {
-          return currentUser.role === 'maestro';
-        })
-      );
+      if (isAdmin) {
+        setTeachers(
+          users.filter((currentUser: Teacher) => {
+            return currentUser.role === 'maestro';
+          }),
+        );
+      } else {
+        setTeachers(
+          Array.from(
+            new Map(
+              loadedGroups
+                .filter((group) => group.maestro)
+                .map((group) => [
+                  Number(group.maestro!.id),
+                  group.maestro!,
+                ]),
+            ).values(),
+          ),
+        );
+      }
     } catch (error: any) {
       console.error('Error al cargar los grupos:', error);
 
       setGroups([]);
       setTeachers([]);
+      setStudents([]);
 
       await Alert.fire({
         title: 'Error al cargar',
@@ -93,8 +141,10 @@ export default function GroupsPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user?.role === 'administrador' || user?.role === 'maestro') {
+      void loadData();
+    }
+  }, [user?.role]);
 
   const filteredGroups = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -118,6 +168,27 @@ export default function GroupsPage() {
       return matchesSearch && matchesTeacher;
     });
   }, [groups, searchTerm, teacherFilter]);
+
+  const filteredRosterStudents = useMemo(() => {
+    const search = rosterSearch.trim().toLowerCase();
+
+    return students
+      .filter((student) => {
+        if (!search) return true;
+
+        const fullName = `${student.nombre} ${student.apellido}`.toLowerCase();
+
+        return (
+          fullName.includes(search) ||
+          student.matricula.toLowerCase().includes(search)
+        );
+      })
+      .sort((a, b) => {
+        const aName = `${a.apellido} ${a.nombre}`;
+        const bName = `${b.apellido} ${b.nombre}`;
+        return aName.localeCompare(bName, 'es');
+      });
+  }, [students, rosterSearch]);
 
   const assignedTeachers = useMemo(
     () =>
@@ -195,6 +266,107 @@ export default function GroupsPage() {
 
     setEditingGroup(null);
     setIsModalOpen(false);
+  };
+
+  const handleOpenRoster = async (group: Group) => {
+    if (!group.maestroId) {
+      await Alert.fire({
+        title: 'Falta asignar maestro',
+        text: 'Asigna un maestro responsable antes de inscribir alumnos.',
+        icon: 'warning',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
+    setRosterGroup(group);
+    setSelectedStudentIds(
+      (group.alumnos ?? []).map((student) => Number(student.id)),
+    );
+    setRosterSearch('');
+    setIsRosterModalOpen(true);
+  };
+
+  const handleCloseRoster = () => {
+    if (savingRoster) return;
+
+    setIsRosterModalOpen(false);
+    setRosterGroup(null);
+    setSelectedStudentIds([]);
+    setRosterSearch('');
+  };
+
+  const toggleRosterStudent = (studentId: number) => {
+    setSelectedStudentIds((currentIds) =>
+      currentIds.includes(studentId)
+        ? currentIds.filter((id) => id !== studentId)
+        : [...currentIds, studentId],
+    );
+  };
+
+  const selectVisibleRosterStudents = () => {
+    const visibleIds = filteredRosterStudents.map((student) => student.id);
+
+    setSelectedStudentIds((currentIds) => [
+      ...new Set([...currentIds, ...visibleIds]),
+    ]);
+  };
+
+  const handleSaveRoster = async () => {
+    if (!rosterGroup) return;
+
+    if (selectedStudentIds.length === 0) {
+      const result = await Alert.fire({
+        title: '¿Dejar el grupo sin alumnos?',
+        text: `Se quitarán todos los alumnos inscritos en ${rosterGroup.nombre}.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, dejar vacío',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+      });
+
+      if (!result.isConfirmed) return;
+    }
+
+    try {
+      setSavingRoster(true);
+      await gradeService.replaceStudents(
+        rosterGroup.uuid,
+        selectedStudentIds,
+      );
+      await loadData();
+
+      setIsRosterModalOpen(false);
+      setRosterGroup(null);
+      setSelectedStudentIds([]);
+      setRosterSearch('');
+
+      await Alert.fire({
+        title: 'Alumnos asignados',
+        text: `${selectedStudentIds.length} alumno${
+          selectedStudentIds.length === 1 ? '' : 's'
+        } quedaron inscritos en el grupo.`,
+        icon: 'success',
+        confirmButtonText: 'Aceptar',
+        timer: 2200,
+        timerProgressBar: true,
+      });
+    } catch (error) {
+      console.error('Error al actualizar los alumnos del grupo:', error);
+
+      await Alert.fire({
+        title: 'No se pudo actualizar el grupo',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'No fue posible guardar la lista de alumnos.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+    } finally {
+      setSavingRoster(false);
+    }
   };
 
   const handleClearFilters = () => {
@@ -446,7 +618,8 @@ export default function GroupsPage() {
               </h1>
 
               <p className="mt-1 text-sm text-gray-500">
-                Administra los grupos y sus maestros responsables.
+                Administra los grupos, sus maestros responsables y la lista de
+                alumnos que podrá consultar cada maestro.
               </p>
             </div>
 
@@ -578,6 +751,15 @@ export default function GroupsPage() {
                       ),
                     },
                     {
+                      key: 'alumnos',
+                      header: 'Alumnos',
+                      render: (group: Group) => (
+                        <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200">
+                          {group.alumnos?.length ?? 0} inscritos
+                        </span>
+                      ),
+                    },
+                    {
                       key: 'estado',
                       header: 'Estado',
                       render: (group: Group) =>
@@ -598,6 +780,16 @@ export default function GroupsPage() {
                         isAdmin ? (
                           <div className="flex flex-wrap gap-2">
                             <Button
+                              type="button"
+                              className="px-2 py-1 text-xs text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={!group.maestroId}
+                              onClick={() => void handleOpenRoster(group)}
+                            >
+                              Administrar alumnos
+                            </Button>
+
+                            <Button
+                              type="button"
                               variant="primary"
                               className="bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100"
                               onClick={() => handleOpenEdit(group)}
@@ -646,10 +838,22 @@ export default function GroupsPage() {
                         <p className="text-xs text-gray-400">Maestro responsable</p>
                         <p className="mt-1 font-medium text-gray-800">{group.maestro?.name || 'No asignado'}</p>
                         {group.maestro?.email && <p className="mt-0.5 text-sm text-gray-500">{group.maestro.email}</p>}
+                        <p className="mt-3 text-xs text-gray-400">Alumnos inscritos</p>
+                        <p className="mt-1 font-semibold text-blue-700">
+                          {group.alumnos?.length ?? 0}
+                        </p>
                       </div>
 
                       {isAdmin ? (
-                        <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                          <Button
+                            type="button"
+                            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={!group.maestroId}
+                            onClick={() => void handleOpenRoster(group)}
+                          >
+                            Alumnos
+                          </Button>
                           <Button type="button" variant="primary" className="bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={() => handleOpenEdit(group)}>
                             Editar
                           </Button>
@@ -787,6 +991,162 @@ export default function GroupsPage() {
                   : 'Crear Grupo'}
             </Button>
           </form>
+        </Modal>
+
+        <Modal
+          open={isRosterModalOpen}
+          onClose={handleCloseRoster}
+          title={
+            rosterGroup
+              ? `Administrar alumnos — ${rosterGroup.nombre}`
+              : 'Administrar alumnos'
+          }
+          size="xl"
+        >
+          {rosterGroup && (
+            <div className="space-y-5">
+              <div className="grid gap-3 rounded-xl border border-red-100 bg-red-50 p-4 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                    Grupo
+                  </p>
+                  <p className="mt-1 font-bold text-red-950">
+                    {rosterGroup.nombre}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                    Maestro responsable
+                  </p>
+                  <p className="mt-1 font-bold text-red-950">
+                    {rosterGroup.maestro?.name ?? 'Sin maestro'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                    Seleccionados
+                  </p>
+                  <p className="mt-1 font-bold text-red-950">
+                    {selectedStudentIds.length} de {students.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+                <Input
+                  label="Buscar alumno"
+                  type="search"
+                  value={rosterSearch}
+                  onChange={(event) => setRosterSearch(event.target.value)}
+                  placeholder="Nombre, apellido o matrícula..."
+                />
+
+                <Button
+                  type="button"
+                  onClick={selectVisibleRosterStudents}
+                  disabled={filteredRosterStudents.length === 0}
+                  className="border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                >
+                  Seleccionar visibles
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={() => setSelectedStudentIds([])}
+                  disabled={selectedStudentIds.length === 0}
+                  className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Quitar selección
+                </Button>
+              </div>
+
+              <div className="max-h-[430px] overflow-y-auto rounded-xl border border-gray-200">
+                {filteredRosterStudents.length === 0 ? (
+                  <div className="p-10 text-center text-sm text-gray-500">
+                    {students.length === 0
+                      ? 'Primero registra y vincula perfiles de alumnos.'
+                      : 'No hay alumnos que coincidan con la búsqueda.'}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredRosterStudents.map((student) => {
+                      const checked = selectedStudentIds.includes(student.id);
+                      const otherGroups = (student.grados ?? []).filter(
+                        (grade) => Number(grade.id) !== Number(rosterGroup.id),
+                      );
+
+                      return (
+                        <label
+                          key={student.id}
+                          className={`flex cursor-pointer items-start gap-3 p-4 transition hover:bg-gray-50 ${
+                            checked ? 'bg-emerald-50/70' : 'bg-white'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleRosterStudent(student.id)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 accent-red-900"
+                          />
+
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-semibold text-gray-900">
+                              {student.apellido} {student.nombre}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-gray-500">
+                              Matrícula: {student.matricula}
+                            </span>
+                            {otherGroups.length > 0 && (
+                              <span className="mt-1 block text-xs text-blue-700">
+                                También pertenece a:{' '}
+                                {otherGroups.map((grade) => grade.nombre).join(', ')}
+                              </span>
+                            )}
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              checked
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {checked ? 'Inscrito' : 'No inscrito'}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  onClick={handleCloseRoster}
+                  disabled={savingRoster}
+                  className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveRoster()}
+                  disabled={savingRoster}
+                  className="bg-red-900 text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingRoster
+                    ? 'Guardando alumnos...'
+                    : `Guardar ${selectedStudentIds.length} alumno${
+                        selectedStudentIds.length === 1 ? '' : 's'
+                      }`}
+                </Button>
+              </div>
+            </div>
+          )}
         </Modal>
       </AppLayout>
     </ProtectedRoute>

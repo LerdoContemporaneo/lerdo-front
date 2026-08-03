@@ -26,6 +26,7 @@ type Grade = {
   nombre: string;
   maestroId: number | null;
   maestro?: Teacher | null;
+  alumnos?: Student[];
 };
 
 type Student = {
@@ -34,9 +35,12 @@ type Student = {
   nombre: string;
   apellido: string;
   matricula: string;
+  gradoIds?: Array<number | string>;
   gradoId?: number | null;
   grado?: Grade | null;
   Grado?: Grade | null;
+  grados?: Grade[];
+  Grados?: Grade[];
 };
 
 type AttendanceRecord = {
@@ -125,8 +129,30 @@ const getInitials = (student?: Student | null) => {
     .slice(0, 2);
 };
 
-const getStudentGrade = (student: Student) =>
-  student.grado ?? student.Grado ?? null;
+const getStudentGrades = (student: Student) => {
+  const grades = [
+    ...(student.grados ?? []),
+    ...(student.Grados ?? []),
+    ...(student.grado ? [student.grado] : []),
+    ...(student.Grado ? [student.Grado] : []),
+  ];
+
+  return Array.from(
+    new Map(grades.map((grade) => [Number(grade.id), grade])).values(),
+  );
+};
+
+const getStudentGradeIds = (student: Student) => {
+  const ids = [
+    ...(student.gradoIds ?? []),
+    ...getStudentGrades(student).map((grade) => grade.id),
+    ...(student.gradoId ? [student.gradoId] : []),
+  ]
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  return Array.from(new Set(ids));
+};
 
 export default function StudentAttendancePage() {
   const { user } = useAuth();
@@ -209,8 +235,10 @@ export default function StudentAttendancePage() {
   };
 
   useEffect(() => {
-    void loadData();
-  }, []);
+    if (isAdmin || isTeacher) {
+      void loadData();
+    }
+  }, [isAdmin, isTeacher]);
 
   const availableGrades = useMemo(() => {
     const assignedGrades = grades.filter(
@@ -219,10 +247,14 @@ export default function StudentAttendancePage() {
 
     if (!isTeacher) return assignedGrades;
 
-    return assignedGrades.filter(
-      (grade) => Number(grade.maestroId) === currentUserId,
-    );
-  }, [grades, isTeacher, currentUserId]);
+    return assignedGrades.filter((grade) => {
+      const sameId = Number(grade.maestroId) === currentUserId;
+      const sameUuid =
+        Boolean(user?.uuid) && grade.maestro?.uuid === user?.uuid;
+
+      return sameId || sameUuid;
+    });
+  }, [grades, isTeacher, currentUserId, user?.uuid]);
 
   useEffect(() => {
     if (availableGrades.length === 0) {
@@ -246,34 +278,33 @@ export default function StudentAttendancePage() {
     [availableGrades, selectedGradeId],
   );
 
-  const getStudentGradeId = (student: Student) => {
-    if (student.gradoId) return Number(student.gradoId);
-
-    const nestedGrade = getStudentGrade(student);
-    if (nestedGrade?.id) return Number(nestedGrade.id);
-
-    if (nestedGrade?.nombre) {
-      return Number(
-        grades.find((grade) => grade.nombre === nestedGrade.nombre)?.id ?? 0,
-      );
-    }
-
-    return 0;
-  };
-
   const groupStudents = useMemo(() => {
     if (!selectedGradeId) return [];
 
-    return students
-      .filter(
-        (student) => getStudentGradeId(student) === Number(selectedGradeId),
+    const directory = new Map<number, Student>();
+
+    students
+      .filter((student) =>
+        getStudentGradeIds(student).includes(Number(selectedGradeId)),
       )
+      .forEach((student) => {
+        directory.set(Number(student.id), student);
+      });
+
+    (selectedGrade?.alumnos ?? []).forEach((student) => {
+      directory.set(Number(student.id), {
+        ...directory.get(Number(student.id)),
+        ...student,
+      });
+    });
+
+    return Array.from(directory.values())
       .sort((a, b) => {
         const nameA = `${a.apellido} ${a.nombre}`;
         const nameB = `${b.apellido} ${b.nombre}`;
         return nameA.localeCompare(nameB, "es");
       });
-  }, [students, selectedGradeId, grades]);
+  }, [students, selectedGradeId, selectedGrade]);
 
   const visibleGroupStudents = useMemo(() => {
     const search = studentSearch.trim().toLowerCase();

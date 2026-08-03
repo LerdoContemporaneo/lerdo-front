@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import { Table } from "../components/ui/Table";
 import { Input } from "../components/ui/Input";
@@ -103,106 +103,81 @@ export default function StudentsPage() {
 
   const itemsPerPage = 6;
 
-  const loadData = async () => {
-    try {
-      setLoadingData(true);
+const loadData = useCallback(async () => {
+  if (!user) return;
 
-      const [studentsResult, gradesResult, usersResult] =
-        await Promise.allSettled([
-          studentService.getAll(),
-          gradeService.getAll(),
-          userService.getAll(),
-        ]);
+  try {
+    setLoadingData(true);
 
-      const studentsData: Student[] =
-        studentsResult.status === "fulfilled" &&
-        Array.isArray(studentsResult.value)
-        ? studentsResult.value
+    const [studentsResult, gradesResult, usersResult] =
+      await Promise.allSettled([
+        studentService.getAll(),
+        gradeService.getAll(),
+        isAdmin
+          ? userService.getAll()
+          : Promise.resolve([]),
+      ]);
+
+    if (studentsResult.status === "rejected") {
+      throw studentsResult.reason;
+    }
+
+    if (gradesResult.status === "rejected") {
+      throw gradesResult.reason;
+    }
+
+    const studentsData =
+      studentsResult.status === "fulfilled"
+        ? (studentsResult.value as Student[])
         : [];
 
-      const gradesData: Grade[] =
-        gradesResult.status === "fulfilled" &&
-        Array.isArray(gradesResult.value)
-        ? gradesResult.value
+    const gradesData =
+      gradesResult.status === "fulfilled"
+        ? (gradesResult.value as Grade[])
         : [];
 
-      const usersData: StudentUser[] =
-        usersResult.status === "fulfilled" &&
-        Array.isArray(usersResult.value)
-        ? usersResult.value
+    const usersData =
+      usersResult.status === "fulfilled"
+        ? (usersResult.value as StudentUser[])
         : [];
 
-      setStudents(studentsData);
-      setGrades(gradesData);
+    setStudents(studentsData);
+    setGrades(gradesData);
 
-      setTeacherUsers(
-        usersData.filter((candidate) => candidate.role === "maestro"),
-      );
+    setTeacherUsers(
+      usersData.filter(
+        (candidate) => candidate.role === "maestro",
+      ),
+    );
 
-      // Usuarios con rol alumno que todavía no han sido vinculados.
-      const unlinkedStudentUsers = usersData.filter(
+    setAvailableUsers(
+      usersData.filter(
         (candidate) =>
           candidate.role === "alumno" &&
           !studentsData.some(
-            (student) => Number(student.userId) === Number(candidate.id),
+            (student) =>
+              Number(student.userId) === Number(candidate.id),
           ),
-      );
+      ),
+    );
+  } catch (error) {
+    console.error("Error cargando alumnos:", error);
 
-      setAvailableUsers(unlinkedStudentUsers);
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No fue posible cargar los alumnos",
+    );
+  } finally {
+    setLoadingData(false);
+  }
+}, [user, isAdmin]);
 
-      const loadErrors: string[] = [];
+useEffect(() => {
+  if (!user) return;
 
-      if (studentsResult.status === "rejected") {
-        loadErrors.push(
-          `Alumnos: ${
-            studentsResult.reason instanceof Error
-              ? studentsResult.reason.message
-              : "error desconocido"
-          }`,
-        );
-      }
-
-      if (gradesResult.status === "rejected") {
-        loadErrors.push(
-          `Grupos: ${
-            gradesResult.reason instanceof Error
-              ? gradesResult.reason.message
-              : "error desconocido"
-          }`,
-        );
-      }
-
-      if (usersResult.status === "rejected") {
-        loadErrors.push(
-          `Usuarios: ${
-            usersResult.reason instanceof Error
-              ? usersResult.reason.message
-              : "error desconocido"
-          }`,
-        );
-      }
-
-      if (loadErrors.length > 0) {
-        console.error("Errores al cargar la página:", loadErrors);
-        alert(
-          `La información se cargó parcialmente:\n\n${loadErrors.join("\n")}`,
-        );
-      }
-    } catch (error) {
-      console.error("Error cargando alumnos:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "No fue posible cargar la información de alumnos.",
-      );
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  void loadData();
+}, [user, loadData]);
 
   const teacherDirectory = useMemo(() => {
     const directory = new Map<number, Teacher>();

@@ -32,6 +32,7 @@ type Grade = {
   nombre: string;
   maestroId: number | null;
   maestro?: Teacher | null;
+  alumnos?: Student[];
 };
 
 type Student = {
@@ -40,9 +41,12 @@ type Student = {
   nombre: string;
   apellido: string;
   matricula: string;
+  gradoIds?: Array<number | string>;
   gradoId?: number | null;
   grado?: Grade | null;
   Grado?: Grade | null;
+  grados?: Grade[];
+  Grados?: Grade[];
 };
 
 type AttendanceRecord = {
@@ -116,8 +120,20 @@ const formatDate = (date?: string) => {
     });
 };
 
-const getStudentGrade = (student: Student) =>
-  student.grado ?? student.Grado ?? null;
+const getStudentGrades = (student: Student) => {
+  const grades = [
+    ...(student.grados ?? []),
+    ...(student.Grados ?? []),
+    ...(student.grado ? [student.grado] : []),
+    ...(student.Grado ? [student.Grado] : []),
+  ];
+
+  return Array.from(
+    new Map(
+      grades.map((grade) => [Number(grade.id), grade])
+    ).values()
+  );
+};
 
 function SummaryCard({
   icon,
@@ -227,10 +243,13 @@ export default function MaestroDashboard() {
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (
+      user?.role === 'maestro' ||
+      user?.role === 'administrador'
+    ) {
       void loadDashboard();
     }
-  }, [user, loadDashboard]);
+  }, [user?.role, loadDashboard]);
 
   const availableGrades = useMemo(() => {
     if (isAdmin) {
@@ -264,31 +283,71 @@ export default function MaestroDashboard() {
     [availableGrades]
   );
 
-  const getStudentGradeId = useCallback(
-    (student: Student) =>
-      Number(
-        student.gradoId ??
-          getStudentGrade(student)?.id ??
-          0
-      ),
-    []
-  );
+  const getStudentGradeIds = useCallback((student: Student) => {
+    const ids = [
+      ...(student.gradoIds ?? []),
+      ...getStudentGrades(student).map((grade) => grade.id),
+      ...(student.gradoId ? [student.gradoId] : []),
+    ]
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    return Array.from(new Set(ids));
+  }, []);
+
+  /*
+   * GET /alumnos devuelve `grados[]` y GET /grados devuelve
+   * `alumnos[]`. Se combinan ambas respuestas para que la vista
+   * siga mostrando la matrícula aunque una de las dos colecciones
+   * tarde en adoptar el contrato de muchos a muchos.
+   */
+  const studentsWithMembership = useMemo(() => {
+    const directory = new Map<number, Student>();
+
+    students.forEach((student) => {
+      directory.set(Number(student.id), student);
+    });
+
+    availableGrades.forEach((grade) => {
+      (grade.alumnos ?? []).forEach((student) => {
+        const current = directory.get(Number(student.id));
+        const currentGrades = current
+          ? getStudentGrades(current)
+          : [];
+
+        directory.set(Number(student.id), {
+          ...current,
+          ...student,
+          grados: Array.from(
+            new Map(
+              [...currentGrades, grade].map((item) => [
+                Number(item.id),
+                item,
+              ])
+            ).values()
+          ),
+        });
+      });
+    });
+
+    return Array.from(directory.values());
+  }, [students, availableGrades]);
 
   const visibleStudents = useMemo(() => {
     if (isAdmin) {
-      return students;
+      return studentsWithMembership;
     }
 
-    return students.filter((student) =>
-      availableGradeIds.has(
-        getStudentGradeId(student)
-      )
+    return studentsWithMembership.filter((student) =>
+      getStudentGradeIds(student).some((gradeId) =>
+        availableGradeIds.has(gradeId),
+      ),
     );
   }, [
-    students,
+    studentsWithMembership,
     isAdmin,
     availableGradeIds,
-    getStudentGradeId,
+    getStudentGradeIds,
   ]);
 
   const studentById = useMemo(
@@ -315,8 +374,9 @@ export default function MaestroDashboard() {
     return availableGrades.map((grade) => {
       const groupStudents = visibleStudents.filter(
         (student) =>
-          getStudentGradeId(student) ===
-          Number(grade.id)
+          getStudentGradeIds(student).includes(
+            Number(grade.id),
+          ),
       );
 
       const registeredStudents = new Set<number>();
@@ -330,7 +390,7 @@ export default function MaestroDashboard() {
           record.gradoId ??
             record.grado?.id ??
             (student
-              ? getStudentGradeId(student)
+              ? getStudentGradeIds(student)[0]
               : 0)
         );
 
@@ -347,6 +407,7 @@ export default function MaestroDashboard() {
 
       return {
         grade,
+        students: groupStudents,
         totalStudents,
         attendanceRegistered,
         pendingStudents: Math.max(
@@ -363,7 +424,7 @@ export default function MaestroDashboard() {
     visibleStudents,
     todayAttendance,
     studentById,
-    getStudentGradeId,
+    getStudentGradeIds,
   ]);
 
   const pendingAttendanceGroups = useMemo(
@@ -394,7 +455,7 @@ export default function MaestroDashboard() {
         task.alumno ?? task.Alumno;
 
       if (nestedStudent) {
-        return getStudentGradeId(nestedStudent);
+        return getStudentGradeIds(nestedStudent)[0] ?? 0;
       }
 
       if (task.alumnoId) {
@@ -403,7 +464,7 @@ export default function MaestroDashboard() {
         );
 
         if (student) {
-          return getStudentGradeId(student);
+          return getStudentGradeIds(student)[0] ?? 0;
         }
       }
 
@@ -411,7 +472,7 @@ export default function MaestroDashboard() {
     },
     [
       studentById,
-      getStudentGradeId,
+      getStudentGradeIds,
     ]
   );
 
@@ -708,6 +769,45 @@ export default function MaestroDashboard() {
                               </span>
                             )}
                           </div>
+
+                          {summary.students.length > 0 && (
+                            <div className="mt-4 rounded-lg bg-gray-50 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Alumnos asignados
+                              </p>
+
+                              <ul className="mt-2 space-y-1.5">
+                                {summary.students
+                                  .slice()
+                                  .sort((a, b) =>
+                                    `${a.apellido} ${a.nombre}`.localeCompare(
+                                      `${b.apellido} ${b.nombre}`,
+                                      'es'
+                                    )
+                                  )
+                                  .slice(0, 4)
+                                  .map((student) => (
+                                    <li
+                                      key={student.id}
+                                      className="flex items-center justify-between gap-3 text-sm"
+                                    >
+                                      <span className="truncate font-medium text-gray-700">
+                                        {student.nombre} {student.apellido}
+                                      </span>
+                                      <span className="shrink-0 text-xs text-gray-500">
+                                        {student.matricula}
+                                      </span>
+                                    </li>
+                                  ))}
+                              </ul>
+
+                              {summary.students.length > 4 && (
+                                <p className="mt-2 text-xs font-semibold text-red-900">
+                                  +{summary.students.length - 4} alumnos más
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           <div className="mt-5">
                             <div className="mb-2 flex justify-between text-xs text-gray-500">
