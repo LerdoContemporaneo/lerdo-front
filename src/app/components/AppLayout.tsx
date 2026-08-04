@@ -36,7 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'maestro'] },
     { name: 'Tareas', href: '/tareas', roles: ['administrador', 'maestro'] },
     { name: 'Reportes', href: '/reportes', roles: ['administrador', 'maestro'] },
-    { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'maestro'] },
+    { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'maestro', 'alumno'] },
   ];
 
   // Filtramos los enlaces para mostrar SOLO los que el usuario tiene permiso de ver

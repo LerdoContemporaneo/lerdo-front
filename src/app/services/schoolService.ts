@@ -249,22 +249,103 @@ export const gradeService = {
   },
 };
 // --- INCIDENCIAS ---
-export const incidentService = {
-  getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/incidencias`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
-  },
-  create: async (data: any) => {
-    const res = await fetch(`${BASE_URL}/incidencias`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
-    return res.json();
-  },
-  delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/incidencias`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
-    return res.json();
-  }
+export type IncidentPayload = {
+  tipo: string;
+  descripcion: string;
+  fecha: string;
+  gradoId: number;
+  alumnoId: number | null;
 };
+
+export type IncidentFilters = {
+  alumnoId?: number;
+  gradoId?: number;
+  maestroId?: number;
+  tipo?: string;
+  desde?: string;
+  hasta?: string;
+};
+
+export const incidentService = {
+  getAll: async (filters: IncidentFilters = {}) => {
+    const query = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        query.set(key, String(value));
+      }
+    });
+
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const res = await fetch(
+      `${BASE_URL}/incidencias${suffix}`,
+      fetchConfig
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible obtener las incidencias (${res.status})`
+      );
+    }
+
+    return ensureArray(data);
+  },
+
+  create: async (payload: IncidentPayload) => {
+    const res = await fetch(`${BASE_URL}/incidencias`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible crear la incidencia (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  update: async (
+    uuid: string,
+    payload: Partial<IncidentPayload>
+  ) => {
+    const res = await fetch(`${BASE_URL}/incidencias/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible actualizar la incidencia (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  delete: async (uuid: string) => {
+    const res = await fetch(`${BASE_URL}/incidencias/${uuid}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible eliminar la incidencia (${res.status})`
+      );
+    }
+
+    return data;
+  },
+};
+
 
 
 
