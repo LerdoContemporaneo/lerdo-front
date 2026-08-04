@@ -501,6 +501,8 @@ export const teacherAttendanceService = {
   }
 };
 
+
+
 // --- REPORTES ---
 export const reportService = {
   getAll: async () => {
@@ -513,10 +515,24 @@ export const reportService = {
       const res = await fetch(`${BASE_URL}/reportes`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
       return res.json();
   },
-  delete: async (id: number) => {
-      const res = await fetch(`${BASE_URL}/reportes`, { ...fetchConfig, method: 'DELETE', body: JSON.stringify({ id }) });
-      return res.json();
-  }
+ delete: async (uuid: string) => {
+    const res = await fetch(`${BASE_URL}/reportes/${uuid}`, {
+      ...fetchConfig,
+      method: "DELETE",
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+        data?.message ||
+        `No fue posible eliminar el reporte (${res.status})`
+      );
+    }
+
+    return data;
+  },
 };
 
 type HomeworkPayload = {
