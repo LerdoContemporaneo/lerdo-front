@@ -348,7 +348,6 @@ export const incidentService = {
 
 
 
-
 export type AttendanceStatus =
   | 'Presente'
   | 'Ausente'
@@ -479,55 +478,208 @@ export const attendanceService = {
 };
 
 // --- ASISTENCIA MAESTROS ---
-export const teacherAttendanceService = {
-  getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/asistencia-maestro`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
-  },
-  // CORRECCIÓN AQUÍ: Renombrado de 'create' a 'createTeacher' (por si acaso)
-  createTeacher: async (maestroId: number, estado: string) => {
-    const res = await fetch(`${BASE_URL}/asistencia-maestro`, { 
-      ...fetchConfig, 
-      method: 'POST', 
-      body: JSON.stringify({ maestroId, estado }) 
-    });
-    return res.json();
-  },
-  delete: async (id: number) => {
-    const res = await fetch(`${BASE_URL}/asistencia-maestro/${id}`, { ...fetchConfig, method: 'DELETE' });
-    return res.json();
-  }
+export type TeacherAttendanceStatus = AttendanceStatus;
+
+export type TeacherAttendancePayload = {
+  maestroId: number;
+  gradoId: number;
+  fecha: string;
+  horaClase: string;
+  estado: TeacherAttendanceStatus;
+  observacion?: string;
 };
 
+export type TeacherAttendanceFilters = {
+  fecha?: string;
+  desde?: string;
+  hasta?: string;
+  maestroId?: number;
+  gradoId?: number;
+  estado?: TeacherAttendanceStatus;
+};
 
+export const teacherAttendanceService = {
+  getAll: async (filters: TeacherAttendanceFilters = {}) => {
+    const query = new URLSearchParams();
 
-// --- REPORTES ---
-export const reportService = {
-  getAll: async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/reportes`, fetchConfig);
-      return ensureArray(await res.json());
-    } catch (e) { return []; }
-  },
-  create: async (data: any) => {
-      const res = await fetch(`${BASE_URL}/reportes`, { ...fetchConfig, method: 'POST', body: JSON.stringify(data) });
-      return res.json();
-  },
- delete: async (uuid: string) => {
-    const res = await fetch(`${BASE_URL}/reportes/${uuid}`, {
-      ...fetchConfig,
-      method: "DELETE",
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        query.set(key, String(value));
+      }
     });
 
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const res = await fetch(
+      `${BASE_URL}/asistencia-maestro${suffix}`,
+      fetchConfig
+    );
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(
         data?.msg ||
-        data?.message ||
-        `No fue posible eliminar el reporte (${res.status})`
+          `No fue posible obtener la asistencia docente (${res.status})`
+      );
+    }
+
+    return ensureArray(data);
+  },
+
+  create: async (payload: TeacherAttendancePayload) => {
+    const res = await fetch(`${BASE_URL}/asistencia-maestro`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible registrar la asistencia docente (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  update: async (
+    uuid: string,
+    payload: TeacherAttendancePayload
+  ) => {
+    const res = await fetch(
+      `${BASE_URL}/asistencia-maestro/${uuid}`,
+      {
+        ...fetchConfig,
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible actualizar la asistencia docente (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  delete: async (uuid: string) => {
+    const res = await fetch(
+      `${BASE_URL}/asistencia-maestro/${uuid}`,
+      {
+        ...fetchConfig,
+        method: 'DELETE',
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible eliminar la asistencia docente (${res.status})`
+      );
+    }
+
+    return data;
+  },
+};
+
+// --- REPORTES ---
+export type ReportPayload = {
+  titulo: string;
+  contenido: string;
+  alumnoId: number;
+  gradoId: number;
+};
+
+export type ReportFilters = {
+  alumnoId?: number;
+  gradoId?: number;
+  desde?: string;
+  hasta?: string;
+};
+
+export const reportService = {
+  getAll: async (filters: ReportFilters = {}) => {
+    const query = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        query.set(key, String(value));
+      }
+    });
+
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const res = await fetch(
+      `${BASE_URL}/reportes${suffix}`,
+      fetchConfig
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible obtener los reportes (${res.status})`
+      );
+    }
+
+    return ensureArray(data);
+  },
+
+  create: async (payload: ReportPayload) => {
+    const res = await fetch(`${BASE_URL}/reportes`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible crear el reporte (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  update: async (
+    uuid: string,
+    payload: Partial<ReportPayload>
+  ) => {
+    const res = await fetch(`${BASE_URL}/reportes/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible actualizar el reporte (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  delete: async (uuid: string) => {
+    const res = await fetch(`${BASE_URL}/reportes/${uuid}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible eliminar el reporte (${res.status})`
       );
     }
 
