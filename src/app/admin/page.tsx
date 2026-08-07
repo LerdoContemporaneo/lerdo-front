@@ -9,545 +9,328 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { userService } from '../services/schoolService';
 import ProtectedRoute from '../components/ProtectedRoute';
-
 import Swal from 'sweetalert2';
 
 const USERS_PER_PAGE = 10;
 
+type UserRole = 'administrador' | 'maestro' | 'alumno';
+
+interface User {
+  uuid: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+const ROLE_STYLES: Record<UserRole, string> = {
+  administrador: 'bg-red-50 text-red-700 ring-red-600/20',
+  maestro: 'bg-blue-50 text-blue-700 ring-blue-600/20',
+  alumno: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+};
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  administrador: 'Administrador',
+  maestro: 'Maestro',
+  alumno: 'Alumno',
+};
+
 const Alert = Swal.mixin({
-  confirmButtonColor: '#7f1d1d', // Tailwind red-900
+  confirmButtonColor: '#7f1d1d',
   cancelButtonColor: '#6b7280',
   buttonsStyling: true,
 });
 
+function Icon({ name }: { name: 'users' | 'search' | 'plus' | 'edit' | 'trash' | 'chevron' | 'refresh' }) {
+  const paths = {
+    users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    search: <><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></>,
+    plus: <><path d="M12 5v14M5 12h14"/></>,
+    edit: <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></>,
+    trash: <><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></>,
+    chevron: <path d="m9 18 6-6-6-6"/>,
+    refresh: <><path d="M20 11a8.1 8.1 0 1 0 2 5M20 4v7h-7"/></>,
+  };
+
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">{paths[name]}</svg>;
+}
+
 export default function AdminPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
-
-  // Estados del buscador y paginación
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('todos');
   const [currentPage, setCurrentPage] = useState(1);
 
   const loadUsers = async () => {
-  try {
-    setLoadingUsers(true);
-
-    const data = await userService.getAll();
-    setUsers(Array.isArray(data) ? data : []);
-  } catch (error: any) {
-    console.error('Error al cargar los usuarios:', error);
-    setUsers([]);
-
-    await Alert.fire({
-      title: 'Error al cargar',
-      text:
-        error?.message ||
-        'No fue posible cargar la lista de usuarios.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-  } finally {
-    setLoadingUsers(false);
-  }
-};
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  // Filtrar usuarios por nombre, correo o rol
-  const filteredUsers = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return users;
+    try {
+      setLoadingUsers(true);
+      const data = await userService.getAll();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.error('Error al cargar los usuarios:', error);
+      setUsers([]);
+      await Alert.fire({
+        title: 'Error al cargar',
+        text: error?.message || 'No fue posible cargar la lista de usuarios.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+    } finally {
+      setLoadingUsers(false);
     }
+  };
 
+  useEffect(() => { loadUsers(); }, []);
+
+  const filteredUsers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
     return users.filter((user) => {
-      const name = String(user.name || '').toLowerCase();
-      const email = String(user.email || '').toLowerCase();
-      const role = String(user.role || '').toLowerCase();
-
-      return (
-        name.includes(normalizedSearch) ||
-        email.includes(normalizedSearch) ||
-        role.includes(normalizedSearch)
-      );
+      const matchesSearch = !query || [user.name, user.email, user.role]
+        .some((value) => String(value || '').toLowerCase().includes(query));
+      const matchesRole = roleFilter === 'todos' || user.role === roleFilter;
+      return matchesSearch && matchesRole;
     });
-  }, [users, searchTerm]);
+  }, [users, searchTerm, roleFilter]);
 
-  // Calcular el número total de páginas
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredUsers.length / USERS_PER_PAGE)
-  );
+  const roleCounts = useMemo(() => ({
+    administradores: users.filter((user) => user.role === 'administrador').length,
+    maestros: users.filter((user) => user.role === 'maestro').length,
+    alumnos: users.filter((user) => user.role === 'alumno').length,
+  }), [users]);
 
-  // Obtener solamente los usuarios de la página actual
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
   const paginatedUsers = useMemo(() => {
-    const startIndex = (currentPage - 1) * USERS_PER_PAGE;
-    const endIndex = startIndex + USERS_PER_PAGE;
-
-    return filteredUsers.slice(startIndex, endIndex);
+    const start = (currentPage - 1) * USERS_PER_PAGE;
+    return filteredUsers.slice(start, start + USERS_PER_PAGE);
   }, [filteredUsers, currentPage]);
 
-  // Regresar a la primera página cuando cambia la búsqueda
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, roleFilter]);
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
-  // Evitar permanecer en una página que ya no existe
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
+    if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
-  const handleSearchChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setSearchTerm(event.target.value);
-  };
+  const visiblePages = useMemo(() => {
+    const start = Math.max(1, Math.min(currentPage - 1, totalPages - 2));
+    const end = Math.min(totalPages, start + 2);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [currentPage, totalPages]);
 
-  const handleClearSearch = () => {
+  const hasFilters = Boolean(searchTerm || roleFilter !== 'todos');
+  const firstVisibleUser = filteredUsers.length ? (currentPage - 1) * USERS_PER_PAGE + 1 : 0;
+  const lastVisibleUser = Math.min(currentPage * USERS_PER_PAGE, filteredUsers.length);
+
+  const clearFilters = () => {
     setSearchTerm('');
-    setCurrentPage(1);
+    setRoleFilter('todos');
   };
 
-  // Abrir modal para crear
   const handleOpenCreate = () => {
     setEditingUser(null);
     setIsModalOpen(true);
   };
 
-  // Abrir modal para editar
-  const handleOpenEdit = (user: any) => {
+  const handleOpenEdit = (user: User) => {
     setEditingUser(user);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    if (loading) return;
-
-    setEditingUser(null);
-    setIsModalOpen(false);
+    if (!loading) {
+      setEditingUser(null);
+      setIsModalOpen(false);
+    }
   };
 
-  const handleDelete = async (uuid: string) => {
-  const result = await Alert.fire({
-    title: '¿Eliminar usuario?',
-    text: 'Esta acción eliminará permanentemente al usuario.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
-    reverseButtons: true,
-    focusCancel: true,
-  });
-
-  if (!result.isConfirmed) return;
-
-  try {
-    Alert.fire({
-      title: 'Eliminando usuario...',
-      text: 'Espera un momento.',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
+  const handleDelete = async (user: User) => {
+    const result = await Alert.fire({
+      title: '¿Eliminar a este usuario?',
+      html: `<strong>${user.name}</strong><br><span style="color:#6b7280">${user.email}</span>`,
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Conservar usuario',
+      reverseButtons: true,
+      focusCancel: true,
     });
 
-    await userService.delete(uuid);
-    await loadUsers();
+    if (!result.isConfirmed) return;
 
-    await Alert.fire({
-      title: 'Usuario eliminado',
-      text: 'El usuario se eliminó correctamente.',
-      icon: 'success',
-      confirmButtonText: 'Aceptar',
-      timer: 2200,
-      timerProgressBar: true,
-    });
-  } catch (error: any) {
-    console.error('Error al eliminar el usuario:', error);
-
-    await Alert.fire({
-      title: 'No se pudo eliminar',
-      text:
-        error?.message ||
-        'El usuario puede tener información relacionada.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-  }
-};
-
-const handleSubmit = async (
-  event: React.FormEvent<HTMLFormElement>
-) => {
-  event.preventDefault();
-
-  const form = event.currentTarget;
-  const formData = new FormData(form);
-
-  const password = String(formData.get('password') || '').trim();
-
-  const payload: any = {
-    name: String(formData.get('name') || '').trim(),
-    email: String(formData.get('email') || '').trim(),
-    role: String(formData.get('role') || ''),
-    password,
-    confPassword: password,
+    try {
+      Alert.fire({ title: 'Eliminando usuario…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+      await userService.delete(user.uuid);
+      await loadUsers();
+      await Alert.fire({ title: 'Usuario eliminado', text: 'La cuenta se eliminó correctamente.', icon: 'success', timer: 2200, timerProgressBar: true });
+    } catch (error: any) {
+      console.error('Error al eliminar el usuario:', error);
+      await Alert.fire({ title: 'No se pudo eliminar', text: error?.message || 'El usuario puede tener información relacionada.', icon: 'error', confirmButtonText: 'Aceptar' });
+    }
   };
 
-  if (!payload.name || !payload.email || !payload.role) {
-    await Alert.fire({
-      title: 'Datos incompletos',
-      text: 'Completa todos los campos obligatorios.',
-      icon: 'warning',
-      confirmButtonText: 'Aceptar',
-    });
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const password = String(formData.get('password') || '').trim();
+    const payload: Record<string, string> = {
+      name: String(formData.get('name') || '').trim(),
+      email: String(formData.get('email') || '').trim(),
+      role: String(formData.get('role') || ''),
+    };
 
-    return;
-  }
+    if (password) {
+      payload.password = password;
+      payload.confPassword = password;
+    }
 
-  if (!editingUser && !password) {
-    await Alert.fire({
-      title: 'Contraseña obligatoria',
-      text: 'Escribe una contraseña para registrar al usuario.',
-      icon: 'warning',
-      confirmButtonText: 'Aceptar',
-    });
+    if (!payload.name || !payload.email || !payload.role) {
+      await Alert.fire({ title: 'Faltan datos', text: 'Completa los campos marcados como obligatorios.', icon: 'warning', confirmButtonText: 'Revisar formulario' });
+      return;
+    }
 
-    return;
-  }
+    if (!editingUser && !password) {
+      await Alert.fire({ title: 'Falta la contraseña', text: 'Escribe una contraseña para crear la cuenta.', icon: 'warning', confirmButtonText: 'Revisar formulario' });
+      return;
+    }
 
-  setLoading(true);
-
-  try {
-    if (editingUser) {
-      await userService.update(editingUser.uuid, payload);
+    setLoading(true);
+    try {
+      if (editingUser) await userService.update(editingUser.uuid, payload);
+      else await userService.create(payload);
 
       await Alert.fire({
-        title: 'Usuario actualizado',
-        text: 'Los cambios se guardaron correctamente.',
+        title: editingUser ? 'Cambios guardados' : 'Usuario registrado',
+        text: editingUser ? 'La información se actualizó correctamente.' : 'La nueva cuenta está lista para usarse.',
         icon: 'success',
-        confirmButtonText: 'Aceptar',
         timer: 2200,
         timerProgressBar: true,
       });
-    } else {
-      await userService.create(payload);
-
-      await Alert.fire({
-        title: 'Usuario registrado',
-        text: 'La nueva cuenta se creó correctamente.',
-        icon: 'success',
-        confirmButtonText: 'Aceptar',
-        timer: 2200,
-        timerProgressBar: true,
-      });
+      setIsModalOpen(false);
+      setEditingUser(null);
+      await loadUsers();
+    } catch (error: any) {
+      console.error('Error al guardar el usuario:', error);
+      await Alert.fire({ title: editingUser ? 'No se pudo actualizar' : 'No se pudo registrar', text: error?.message || 'Ocurrió un error al guardar la información.', icon: 'error', confirmButtonText: 'Aceptar' });
+    } finally {
+      setLoading(false);
     }
-
-    setIsModalOpen(false);
-    setEditingUser(null);
-
-    await loadUsers();
-  } catch (error: any) {
-    console.error('Error al guardar el usuario:', error);
-
-    await Alert.fire({
-      title: editingUser
-        ? 'No se pudo actualizar'
-        : 'No se pudo registrar',
-      text:
-        error?.message ||
-        'Ocurrió un error al guardar la información del usuario.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Crear los números de página que se mostrarán
-  const visiblePages = useMemo(() => {
-    const pages: number[] = [];
-
-    const firstPage = Math.max(1, currentPage - 2);
-    const lastPage = Math.min(totalPages, currentPage + 2);
-
-    for (let page = firstPage; page <= lastPage; page += 1) {
-      pages.push(page);
-    }
-
-    return pages;
-  }, [currentPage, totalPages]);
-
-  const firstVisibleUser =
-    filteredUsers.length === 0
-      ? 0
-      : (currentPage - 1) * USERS_PER_PAGE + 1;
-
-  const lastVisibleUser = Math.min(
-    currentPage * USERS_PER_PAGE,
-    filteredUsers.length
-  );
+  };
 
   return (
     <ProtectedRoute allowedRoles={['administrador']}>
       <AppLayout>
-        <div className="space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-red-900">
-                Gestión de Usuarios
-              </h1>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Administra las cuentas y los roles del portal.
-              </p>
+        <main className="mx-auto w-full max-w-7xl space-y-6 pb-10">
+          <header className="flex flex-col gap-5 rounded-2xl bg-gradient-to-br from-red-950 via-red-900 to-red-800 p-6 text-white shadow-lg shadow-red-950/10 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+            <div className="flex items-start gap-4">
+              <div className="hidden rounded-xl bg-white/10 p-3 ring-1 ring-white/20 sm:block"><Icon name="users" /></div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200">Administración</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Gestión de usuarios</h1>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-red-100">Crea cuentas, actualiza su información y asigna los permisos correctos.</p>
+              </div>
             </div>
-
-            <Button
-              onClick={handleOpenCreate}
-              className="bg-red-900 text-white hover:bg-red-800"
-            >
-              + Nuevo Usuario
+            <Button onClick={handleOpenCreate} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl  px-5 font-semibold text-red-900 shadow-sm transition  focus-visible:ring-2 focus-visible:ring-white">
+              <Icon name="plus" /> Nuevo usuario
             </Button>
-          </div>
+          </header>
 
-          {/* Buscador */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex-1">
-                <Input
-                  label="Buscar usuario"
-                  name="search"
-                  type="text"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  placeholder="Buscar por nombre, correo o rol..."
-                />
+          <section aria-label="Resumen de usuarios" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              ['Total', users.length, 'text-gray-900'],
+              ['Administradores', roleCounts.administradores, 'text-red-700'],
+              ['Maestros', roleCounts.maestros, 'text-blue-700'],
+              ['Alumnos', roleCounts.alumnos, 'text-emerald-700'],
+            ].map(([label, value, color]) => (
+              <div key={String(label)} className="rounded-2xl border border-gray-200 p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-medium text-gray-500 sm:text-sm">{label}</p>
+                <p className={`mt-1 text-2xl font-bold ${color}`}>{loadingUsers ? '—' : value}</p>
+              </div>
+            ))}
+          </section>
+
+          <section className="rounded-2xl border border-gray-200  shadow-sm" aria-labelledby="users-list-title">
+            <div className="border-b border-gray-100 p-4 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2 id="users-list-title" className="font-semibold text-gray-900">Directorio de usuarios</h2>
+                  <p aria-live="polite" className="mt-0.5 text-sm text-gray-500">{filteredUsers.length} {filteredUsers.length === 1 ? 'resultado' : 'resultados'}</p>
+                </div>
+                <Button type="button" onClick={loadUsers} disabled={loadingUsers} aria-label="Actualizar lista" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200  p-0 text-gray-600 disabled:opacity-50"><Icon name="refresh" /></Button>
               </div>
 
-              {searchTerm && (
-                <Button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-                >
-                  Limpiar
-                </Button>
-              )}
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px_auto] sm:items-end">
+                <div className="relative">
+                  <div className="pointer-events-none absolute bottom-3 left-3 z-10 text-gray-400"><Icon name="search" /></div>
+                  <Input label="Buscar" name="search" type="search" value={searchTerm} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(event.target.value)} placeholder="Nombre, correo o rol" className="pl-10" />
+                </div>
+                <Select label="Filtrar por rol" name="roleFilter" value={roleFilter} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setRoleFilter(event.target.value)} options={[
+                  { label: 'Todos los roles', value: 'todos' },
+                  { label: 'Administradores', value: 'administrador' },
+                  { label: 'Maestros', value: 'maestro' },
+                  { label: 'Alumnos', value: 'alumno' },
+                ]} />
+                {hasFilters && <Button type="button" onClick={clearFilters} className="min-h-10 rounded-lg border border-gray-300  px-4 text-sm font-medium text-gray-700 hover:bg-gray-50">Limpiar filtros</Button>}
+              </div>
             </div>
 
-            <p className="mt-3 text-sm text-gray-500">
-              {filteredUsers.length === 1
-                ? '1 usuario encontrado'
-                : `${filteredUsers.length} usuarios encontrados`}
-            </p>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             {loadingUsers ? (
-              <div className="p-10 text-center text-gray-500">
-                Cargando usuarios...
+              <div className="space-y-3 p-6" aria-label="Cargando usuarios" role="status">
+                {[1, 2, 3, 4, 5].map((row) => <div key={row} className="h-12 animate-pulse rounded-lg bg-gray-100" />)}
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="p-10 text-center">
-                <p className="font-medium text-gray-700">
-                  No se encontraron usuarios
-                </p>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Intenta realizar la búsqueda con otro nombre,
-                  correo o rol.
-                </p>
+              <div className="flex flex-col items-center px-6 py-16 text-center">
+                <div className="rounded-full bg-gray-100 p-4 text-gray-500"><Icon name="search" /></div>
+                <h3 className="mt-4 font-semibold text-gray-900">No encontramos usuarios</h3>
+                <p className="mt-1 max-w-sm text-sm text-gray-500">Prueba con otro término o elimina los filtros para ver todo el directorio.</p>
+                {hasFilters && <Button type="button" onClick={clearFilters} className="mt-5 rounded-lg bg-red-900 px-4 py-2 text-white hover:bg-red-800">Ver todos los usuarios</Button>}
               </div>
             ) : (
               <>
-                <Table
-                  columns={[
-                    {
-                      key: 'name',
-                      header: 'Nombre',
-                    },
-                    {
-                      key: 'email',
-                      header: 'Email',
-                    },
-                    {
-                      key: 'role',
-                      header: 'Rol',
-                      render: (user: any) => (
-                        <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-700">
-                          {user.role}
-                        </span>
-                      ),
-                    },
-                    {
-                      key: 'actions',
-                      header: 'Acciones',
-                      render: (user: any) => (
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="primary"
-                            className="bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100"
-                            onClick={() => handleOpenEdit(user)}
-                          >
-                            Editar
-                          </Button>
+                <div className="overflow-x-auto">
+                  <Table columns={[
+                    { key: 'name', header: 'Usuario', render: (user: User) => <div className="min-w-[180px]"><p className="font-medium text-gray-900">{user.name}</p><p className="mt-0.5 text-xs text-gray-500 sm:hidden">{user.email}</p></div> },
+                    { key: 'email', header: 'Correo electrónico' },
+                    { key: 'role', header: 'Rol', render: (user: User) => <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${ROLE_STYLES[user.role] || 'bg-gray-50 text-gray-700 ring-gray-600/20'}`}>{ROLE_LABELS[user.role] || user.role}</span> },
+                    { key: 'actions', header: 'Acciones', render: (user: User) => <div className="flex items-center justify-end gap-2">
+                      <Button type="button" onClick={() => handleOpenEdit(user)} aria-label={`Editar a ${user.name}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-gray-200  px-3 text-xs font-semibold text-gray-700 hover:border-blue-200 hover:bg-blue-50"><Icon name="edit" /> Editar</Button>
+                      <Button type="button" onClick={() => handleDelete(user)} aria-label={`Eliminar a ${user.name}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-100  px-3 text-xs font-semibold text-red-700 "><Icon name="trash" /> Eliminar</Button>
+                    </div> },
+                  ]} data={paginatedUsers} />
+                </div>
 
-                          <Button
-                            variant="danger"
-                            className="bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
-                            onClick={() =>
-                              handleDelete(user.uuid)
-                            }
-                          >
-                            Eliminar
-                          </Button>
-                        </div>
-                      ),
-                    },
-                  ]}
-                  data={paginatedUsers}
-                />
-
-                {/* Paginador */}
-<div className="flex flex-col gap-4 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-  <p className="text-sm text-gray-600">
-    Mostrando <span className="font-medium">{firstVisibleUser}</span> a{' '}
-    <span className="font-medium">{lastVisibleUser}</span> de{' '}
-    <span className="font-medium">{filteredUsers.length}</span> usuarios
-  </p>
-
-  <div className="flex flex-wrap items-center gap-2">
-    <Button
-      type="button"
-      disabled={currentPage === 1}
-      onClick={() =>
-        setCurrentPage((page) => Math.max(page - 1, 1))
-      }
-      className="bg-red-900 px-3 py-2 text-sm text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-900 disabled:text-white disabled:opacity-50"
-    >
-      Anterior
-    </Button>
-
-    {visiblePages.map((page) => (
-      <Button
-        key={page}
-        type="button"
-        onClick={() => setCurrentPage(page)}
-        className={
-          currentPage === page
-            ? 'border border-red-900 bg-red-900 px-3 py-2 text-sm text-white hover:bg-red-800'
-            : 'border border-red-900 bg-red-900 px-3 py-2 text-sm text-white hover:bg-red-800'
-        }
-      >
-        {page}
-      </Button>
-    ))}
-
-    <Button
-      type="button"
-      disabled={currentPage === totalPages}
-      onClick={() =>
-        setCurrentPage((page) => Math.min(page + 1, totalPages))
-      }
-      className="bg-red-900 px-3 py-2 text-sm text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-900 disabled:text-white disabled:opacity-50"
-    >
-      Siguiente
-    </Button>
-  </div>
-</div>
+                <nav aria-label="Paginación de usuarios" className="flex flex-col gap-4 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <p className="text-center text-sm text-gray-600 sm:text-left">Mostrando <strong>{firstVisibleUser}–{lastVisibleUser}</strong> de <strong>{filteredUsers.length}</strong></p>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => page - 1)} aria-label="Página anterior" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200  p-0 text-gray-700  disabled:cursor-not-allowed disabled:opacity-40"><span className="rotate-180"><Icon name="chevron" /></span></Button>
+                    {visiblePages.map((page) => <Button key={page} type="button" onClick={() => setCurrentPage(page)} aria-current={currentPage === page ? 'page' : undefined} aria-label={`Ir a la página ${page}`} className={`h-10 min-w-10 rounded-lg px-3 text-sm font-semibold ${currentPage === page ? 'bg-red-900 text-white shadow-sm' : 'border border-transparent  text-gray-700 '}`}>{page}</Button>)}
+                    <Button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => page + 1)} aria-label="Página siguiente" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200  p-0 text-gray-700  disabled:cursor-not-allowed disabled:opacity-40"><Icon name="chevron" /></Button>
+                  </div>
+                </nav>
               </>
             )}
-          </div>
-        </div>
+          </section>
+        </main>
 
-        <Modal
-          open={isModalOpen}
-          onClose={handleCloseModal}
-          title={
-            editingUser
-              ? 'Editar Usuario'
-              : 'Registrar Nuevo Usuario'
-          }
-        >
-          <form
-            key={editingUser?.uuid || 'new-user'}
-            onSubmit={handleSubmit}
-            className="space-y-4 p-4"
-          >
-            <Input
-              label="Nombre Completo"
-              name="name"
-              defaultValue={editingUser?.name || ''}
-              required
-            />
-
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              defaultValue={editingUser?.email || ''}
-              required
-            />
-
-            <Input
-              label={
-                editingUser
-                  ? 'Nueva Contraseña (Opcional)'
-                  : 'Contraseña'
-              }
-              name="password"
-              type="password"
-              placeholder={
-                editingUser
-                  ? 'Dejar en blanco para mantener la actual'
-                  : '******'
-              }
-              required={!editingUser}
-            />
-
-            <Select
-              label="Rol de Usuario"
-              name="role"
-              required
-              defaultValue={editingUser?.role || 'maestro'}
-              options={[
-                {
-                  label: 'Maestro',
-                  value: 'maestro',
-                },
-                {
-                  label: 'Administrador',
-                  value: 'administrador',
-                },
-                {
-                  label: 'Alumno',
-                  value: 'alumno',
-                },
-              ]}
-            />
-
-            <Button
-              type="submit"
-              className="w-full bg-red-900 text-white"
-              disabled={loading}
-            >
-              {loading
-                ? 'Guardando...'
-                : editingUser
-                  ? 'Actualizar Usuario'
-                  : 'Guardar Usuario'}
-            </Button>
+        <Modal open={isModalOpen} onClose={handleCloseModal} title={editingUser ? 'Editar usuario' : 'Crear usuario'}>
+          <form key={editingUser?.uuid || 'new-user'} onSubmit={handleSubmit} className="space-y-5 p-5 sm:p-6">
+            <p className="-mt-2 text-sm leading-6 text-gray-500">{editingUser ? 'Actualiza los datos de la cuenta. Los campos con * son obligatorios.' : 'Completa los datos para agregar una cuenta al portal.'}</p>
+            <Input label="Nombre completo *" name="name" autoComplete="name" defaultValue={editingUser?.name || ''} placeholder="Ej. Ana García" required />
+            <Input label="Correo electrónico *" name="email" type="email" autoComplete="email" defaultValue={editingUser?.email || ''} placeholder="nombre@escuela.edu" required />
+            <Select label="Rol de usuario *" name="role" required defaultValue={editingUser?.role || 'maestro'} options={[
+              { label: 'Maestro', value: 'maestro' },
+              { label: 'Administrador', value: 'administrador' },
+              { label: 'Alumno', value: 'alumno' },
+            ]} />
+            <div>
+              <Input label={editingUser ? 'Nueva contraseña' : 'Contraseña *'} name="password" type="password" autoComplete="new-password" placeholder={editingUser ? 'Déjala vacía para conservar la actual' : 'Escribe una contraseña segura'} required={!editingUser} />
+              <p className="mt-1.5 text-xs text-gray-500">{editingUser ? 'Solo se cambiará si escribes una nueva.' : 'Usa una combinación fácil de recordar y difícil de adivinar.'}</p>
+            </div>
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
+              <Button type="button" onClick={handleCloseModal} disabled={loading} className="min-h-11 rounded-xl border border-gray-300  px-5 font-semibold text-gray-700">Cancelar</Button>
+              <Button type="submit" disabled={loading} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-red-900 px-5 font-semibold text-white shadow-sm hover:bg-red-800 disabled:cursor-wait disabled:opacity-60">{loading ? 'Guardando…' : editingUser ? 'Guardar cambios' : 'Crear usuario'}</Button>
+            </div>
           </form>
         </Modal>
       </AppLayout>
