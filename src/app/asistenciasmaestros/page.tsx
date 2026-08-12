@@ -22,6 +22,7 @@ import {
   type TeacherAttendancePayload,
   type TeacherAttendanceStatus,
 } from '../services/schoolService';
+import type { UserRole } from '../types/auth';
 
 type Teacher = {
   id: number;
@@ -62,7 +63,7 @@ type AttendanceForm = {
 };
 
 const ITEMS_PER_PAGE = 8;
-const ADMIN_ROLES = ['administrador'];
+const ADMIN_ROLES: UserRole[] = ['administrador'];
 
 const getToday = () => {
   const date = new Date();

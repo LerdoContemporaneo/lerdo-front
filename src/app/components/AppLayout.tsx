@@ -23,7 +23,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     href: string;
     roles: UserRole[];
   }> = [
-    { name: 'Dashboard', href: dashboardHref, roles: ['administrador', 'maestro', 'alumno'] },
+    { name: 'Dashboard', href: dashboardHref, roles: ['administrador', 'coordinador', 'maestro', 'alumno'] },
     { name: 'Administración', href: '/admin', roles: ['administrador'] },
     //corregir nombre y logica de esta pagina
     //{ name: 'Maestros', href: '/teachers', roles: ['administrador', 'maestro'] },

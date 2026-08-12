@@ -2,8 +2,9 @@
 import { useAuth } from '../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import type { UserRole } from '../types/auth';
 
-export default function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) {
+export default function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: UserRole[] }) {
   // 1. Extrae 'loading' además del usuario
   const { user, loading } = useAuth(); 
   const router = useRouter();

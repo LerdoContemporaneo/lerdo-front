@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import Image from 'next/image'; // Importamos Image de Next.js para el logo
+import { getRoleHomePath } from '../lib/authRoutes';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -25,16 +26,7 @@ export default function LoginPage() {
     const response = await login(email, password);
 
     if (response.success) {
-      // Redirigimos según el rol exacto de la base de datos
-      if (response.role === 'administrador') {
-         router.push('/admin/me');
-      } else if (response.role === 'maestro') {
-         router.push('/me/maestro');
-      } else if (response.role === 'alumno') {
-         router.push('/me/alumno');
-      } else {
-         router.push('/'); // Por si acaso hay un rol raro
-      }
+      router.push(response.role ? getRoleHomePath(response.role) : '/');
     } else {
       setError('Credenciales incorrectas. ¿Quizás Mapi escondió tu contraseña? 🦝');
     }

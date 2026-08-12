@@ -2,6 +2,7 @@ import type { UserRole } from "../types/auth";
 
 const HOME_BY_ROLE: Record<UserRole, string> = {
   administrador: "/admin/me",
+  coordinador: "/coordinacion",
   maestro: "/me/maestro",
   alumno: "/me/alumno",
 };

@@ -7,29 +7,38 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { userService } from '../services/schoolService';
+import UserLevelSelector from '../components/users/UserLevelSelector';
+import {
+  levelService,
+  userService,
+  type EducationalLevel,
+  type UserPayload,
+} from '../services/schoolService';
 import ProtectedRoute from '../components/ProtectedRoute';
 import Swal from 'sweetalert2';
+import type { UserRole } from '../types/auth';
 
 const USERS_PER_PAGE = 10;
 
-type UserRole = 'administrador' | 'maestro' | 'alumno';
-
 interface User {
+  id?: number;
   uuid: string;
   name: string;
   email: string;
   role: UserRole;
+  niveles?: EducationalLevel[];
 }
 
 const ROLE_STYLES: Record<UserRole, string> = {
   administrador: 'bg-red-50 text-red-700 ring-red-600/20',
+  coordinador: 'bg-amber-50 text-amber-800 ring-amber-600/20',
   maestro: 'bg-blue-50 text-blue-700 ring-blue-600/20',
   alumno: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
 };
 
 const ROLE_LABELS: Record<UserRole, string> = {
   administrador: 'Administrador',
+  coordinador: 'Coordinador',
   maestro: 'Maestro',
   alumno: 'Alumno',
 };
@@ -56,10 +65,14 @@ function Icon({ name }: { name: 'users' | 'search' | 'plus' | 'edit' | 'trash' |
 
 export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [levels, setLevels] = useState<EducationalLevel[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('maestro');
+  const [selectedLevelIds, setSelectedLevelIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingLevels, setLoadingLevels] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('todos');
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,7 +96,28 @@ export default function AdminPage() {
     }
   };
 
-  useEffect(() => { loadUsers(); }, []);
+  const loadLevels = async () => {
+    try {
+      setLoadingLevels(true);
+      setLevels(await levelService.getAll());
+    } catch (error: any) {
+      console.error('Error al cargar los niveles:', error);
+      setLevels([]);
+      await Alert.fire({
+        title: 'No se cargaron los niveles',
+        text: error?.message || 'No fue posible cargar los niveles educativos.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+    } finally {
+      setLoadingLevels(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+    void loadLevels();
+  }, []);
 
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -97,6 +131,7 @@ export default function AdminPage() {
 
   const roleCounts = useMemo(() => ({
     administradores: users.filter((user) => user.role === 'administrador').length,
+    coordinadores: users.filter((user) => user.role === 'coordinador').length,
     maestros: users.filter((user) => user.role === 'maestro').length,
     alumnos: users.filter((user) => user.role === 'alumno').length,
   }), [users]);
@@ -129,19 +164,38 @@ export default function AdminPage() {
 
   const handleOpenCreate = () => {
     setEditingUser(null);
+    setSelectedRole('maestro');
+    setSelectedLevelIds([]);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (user: User) => {
     setEditingUser(user);
+    setSelectedRole(user.role);
+    setSelectedLevelIds(
+      (user.niveles ?? [])
+        .filter((level) => level.activo)
+        .map((level) => Number(level.id)),
+    );
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     if (!loading) {
       setEditingUser(null);
+      setSelectedRole('maestro');
+      setSelectedLevelIds([]);
       setIsModalOpen(false);
     }
+  };
+
+  const handleRoleChange = (role: UserRole) => {
+    setSelectedRole(role);
+    setSelectedLevelIds((currentIds) => {
+      if (role === 'administrador') return [];
+      if (role === 'alumno') return currentIds.slice(0, 1);
+      return currentIds;
+    });
   };
 
   const handleDelete = async (user: User) => {
@@ -174,10 +228,11 @@ export default function AdminPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const password = String(formData.get('password') || '').trim();
-    const payload: Record<string, string> = {
+    const payload: UserPayload = {
       name: String(formData.get('name') || '').trim(),
       email: String(formData.get('email') || '').trim(),
-      role: String(formData.get('role') || ''),
+      role: selectedRole,
+      nivelIds: selectedRole === 'administrador' ? [] : selectedLevelIds,
     };
 
     if (password) {
@@ -195,6 +250,26 @@ export default function AdminPage() {
       return;
     }
 
+    if (selectedRole !== 'administrador' && selectedLevelIds.length === 0) {
+      await Alert.fire({
+        title: 'Falta el nivel educativo',
+        text: 'Selecciona al menos un nivel para esta cuenta.',
+        icon: 'warning',
+        confirmButtonText: 'Revisar formulario',
+      });
+      return;
+    }
+
+    if (selectedRole === 'alumno' && selectedLevelIds.length !== 1) {
+      await Alert.fire({
+        title: 'Selecciona un solo nivel',
+        text: 'La cuenta de alumno debe pertenecer exactamente a un nivel educativo.',
+        icon: 'warning',
+        confirmButtonText: 'Revisar formulario',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       if (editingUser) await userService.update(editingUser.uuid, payload);
@@ -209,6 +284,8 @@ export default function AdminPage() {
       });
       setIsModalOpen(false);
       setEditingUser(null);
+      setSelectedRole('maestro');
+      setSelectedLevelIds([]);
       await loadUsers();
     } catch (error: any) {
       console.error('Error al guardar el usuario:', error);
@@ -236,10 +313,11 @@ export default function AdminPage() {
             </Button>
           </header>
 
-          <section aria-label="Resumen de usuarios" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section aria-label="Resumen de usuarios" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             {[
               ['Total', users.length, 'text-gray-900'],
               ['Administradores', roleCounts.administradores, 'text-red-700'],
+              ['Coordinadores', roleCounts.coordinadores, 'text-amber-700'],
               ['Maestros', roleCounts.maestros, 'text-blue-700'],
               ['Alumnos', roleCounts.alumnos, 'text-emerald-700'],
             ].map(([label, value, color]) => (
@@ -268,6 +346,7 @@ export default function AdminPage() {
                 <Select label="Filtrar por rol" name="roleFilter" value={roleFilter} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setRoleFilter(event.target.value)} options={[
                   { label: 'Todos los roles', value: 'todos' },
                   { label: 'Administradores', value: 'administrador' },
+                  { label: 'Coordinadores', value: 'coordinador' },
                   { label: 'Maestros', value: 'maestro' },
                   { label: 'Alumnos', value: 'alumno' },
                 ]} />
@@ -293,6 +372,7 @@ export default function AdminPage() {
                     { key: 'name', header: 'Usuario', render: (user: User) => <div className="min-w-[180px]"><p className="font-medium text-gray-900">{user.name}</p><p className="mt-0.5 text-xs text-gray-500 sm:hidden">{user.email}</p></div> },
                     { key: 'email', header: 'Correo electrónico' },
                     { key: 'role', header: 'Rol', render: (user: User) => <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${ROLE_STYLES[user.role] || 'bg-gray-50 text-gray-700 ring-gray-600/20'}`}>{ROLE_LABELS[user.role] || user.role}</span> },
+                    { key: 'niveles', header: 'Nivel educativo', render: (user: User) => user.role === 'administrador' ? <span className="text-sm text-gray-500">Acceso global</span> : (user.niveles?.length ?? 0) > 0 ? <div className="flex max-w-xs flex-wrap gap-1">{user.niveles?.map((level) => <span key={level.uuid} className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{level.nombre}</span>)}</div> : <span className="text-sm font-medium text-amber-700">Sin asignar</span> },
                     { key: 'actions', header: 'Acciones', render: (user: User) => <div className="flex items-center justify-end gap-2">
                       <Button type="button" onClick={() => handleOpenEdit(user)} aria-label={`Editar a ${user.name}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-gray-200  px-3 text-xs font-semibold text-gray-700 hover:border-blue-200 hover:bg-blue-50"><Icon name="edit" /> Editar</Button>
                       <Button type="button" onClick={() => handleDelete(user)} aria-label={`Eliminar a ${user.name}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-100  px-3 text-xs font-semibold text-red-700 "><Icon name="trash" /> Eliminar</Button>
@@ -318,11 +398,20 @@ export default function AdminPage() {
             <p className="-mt-2 text-sm leading-6 text-gray-500">{editingUser ? 'Actualiza los datos de la cuenta. Los campos con * son obligatorios.' : 'Completa los datos para agregar una cuenta al portal.'}</p>
             <Input label="Nombre completo *" name="name" autoComplete="name" defaultValue={editingUser?.name || ''} placeholder="Ej. Ana García" required />
             <Input label="Correo electrónico *" name="email" type="email" autoComplete="email" defaultValue={editingUser?.email || ''} placeholder="nombre@escuela.edu" required />
-            <Select label="Rol de usuario *" name="role" required defaultValue={editingUser?.role || 'maestro'} options={[
+            <Select label="Rol de usuario *" name="role" required value={selectedRole} onChange={(event) => handleRoleChange(event.target.value as UserRole)} options={[
+              { label: 'Coordinador', value: 'coordinador' },
               { label: 'Maestro', value: 'maestro' },
               { label: 'Administrador', value: 'administrador' },
               { label: 'Alumno', value: 'alumno' },
             ]} />
+            <UserLevelSelector
+              role={selectedRole}
+              levels={levels}
+              selectedIds={selectedLevelIds}
+              onChange={setSelectedLevelIds}
+              loading={loadingLevels}
+              disabled={loading}
+            />
             <div>
               <Input label={editingUser ? 'Nueva contraseña' : 'Contraseña *'} name="password" type="password" autoComplete="new-password" placeholder={editingUser ? 'Déjala vacía para conservar la actual' : 'Escribe una contraseña segura'} required={!editingUser} />
               <p className="mt-1.5 text-xs text-gray-500">{editingUser ? 'Solo se cambiará si escribes una nueva.' : 'Usa una combinación fácil de recordar y difícil de adivinar.'}</p>

@@ -1,16 +1,12 @@
 // app/services/authService.ts
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+import type { AuthUser } from '../types/auth';
 
-interface LoginResponse {
-  id: number;
-  uuid: string;
-  name: string;
-  email: string;
-  role: string;
-}
+type LoginResponse = AuthUser;
+
+const getBaseUrl = () => process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export async function loginApi(email: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${BASE_URL}/login`, {
+  const res = await fetch(`${getBaseUrl()}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // CLAVE: Esto asegura que las cookies de sesión se envíen y reciban
@@ -29,7 +25,7 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
 }
 
 export async function checkMeApi(): Promise<LoginResponse | null> {
-  const res = await fetch(`${BASE_URL}/me`, {
+  const res = await fetch(`${getBaseUrl()}/me`, {
     method: "GET",
     credentials: "include",
   });
@@ -43,7 +39,7 @@ export async function checkMeApi(): Promise<LoginResponse | null> {
 
 
 export async function logoutApi(): Promise<void> {
-  await fetch(`${BASE_URL}/logout`, {
+  await fetch(`${getBaseUrl()}/logout`, {
     method: "DELETE", // En tu rest.rest dice que el logout es DELETE
     credentials: "include", // Importante para enviar la cookie a destruir
   });

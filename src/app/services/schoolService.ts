@@ -11,6 +11,62 @@ const ensureArray = (result: any) => {
   return [];
 };
 
+export type EducationalLevel = {
+  id: number;
+  uuid: string;
+  nombre: string;
+  clave: string;
+  orden: number;
+  activo: boolean;
+};
+
+export type UserPayload = {
+  name: string;
+  email: string;
+  role: 'administrador' | 'coordinador' | 'maestro' | 'alumno';
+  password?: string;
+  confPassword?: string;
+  nivelIds: number[];
+};
+
+// --- NIVELES EDUCATIVOS ---
+export const levelService = {
+  getAll: async (): Promise<EducationalLevel[]> => {
+    const res = await fetch(`${BASE_URL}/niveles`, fetchConfig);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible obtener los niveles (${res.status})`,
+      );
+    }
+
+    return ensureArray(data) as EducationalLevel[];
+  },
+
+  getForUser: async (uuid: string): Promise<{
+    usuario: unknown;
+    niveles: EducationalLevel[];
+  }> => {
+    const res = await fetch(
+      `${BASE_URL}/usuarios/${uuid}/niveles`,
+      fetchConfig,
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible obtener los niveles del usuario (${res.status})`,
+      );
+    }
+
+    return {
+      usuario: data.usuario,
+      niveles: ensureArray(data.niveles) as EducationalLevel[],
+    };
+  },
+};
+
 // --- USUARIOS ---
 export const userService = {
   getAll: async () => {
@@ -24,7 +80,7 @@ export const userService = {
   }
   return ensureArray(data);
 },
-  create: async (data: any) => {
+  create: async (data: UserPayload) => {
     const payload = {
       ...data,
       confPassword: data.password
@@ -38,7 +94,7 @@ export const userService = {
     return res.json();
   },
   
-update: async (uuid: string, data: any) => { 
+update: async (uuid: string, data: UserPayload) => {
     const payload = {
       ...data,
       confPassword: data.password || "" 

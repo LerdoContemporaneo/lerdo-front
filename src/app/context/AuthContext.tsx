@@ -3,19 +3,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 import { loginApi, checkMeApi, logoutApi } from '../services/authService';
+import type { AuthUser, UserRole } from '../types/auth';
 
-export interface UserData {
-    id: number;
-    uuid: string;
-    name: string;
-    email: string;
-    role: 'administrador' | 'maestro' | 'alumno';
-}
+export type UserData = AuthUser;
 
 interface AuthContextType {
     user: UserData | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<{ success: boolean; role?: string }>;
+    login: (email: string, password: string) => Promise<{ success: boolean; role?: UserRole }>;
     logout: () => Promise<void>;
 }
 
@@ -29,7 +24,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const userData = await checkMeApi();
             if (userData) {
-                // @ts-ignore
                 setUser(userData);
             }
         } catch (error) {
@@ -45,10 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
   
-    async function login(email: string, password: string): Promise<{ success: boolean; role?: string }> {
+    async function login(email: string, password: string): Promise<{ success: boolean; role?: UserRole }> {
         try {
             const userData = await loginApi(email, password);
-            // @ts-ignore
             setUser(userData);
             return { success: true, role: userData.role };
         } catch (error) {
