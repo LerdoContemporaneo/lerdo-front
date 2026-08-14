@@ -20,6 +20,21 @@ export type EducationalLevel = {
   activo: boolean;
 };
 
+export type EducationalLevelPayload = {
+  nombre: string;
+  clave: string;
+  orden: number;
+  activo: boolean;
+};
+
+export type EducationalLevelUpdate =
+  Partial<EducationalLevelPayload>;
+
+type UserLevelsResponse = {
+  usuario: unknown;
+  niveles: EducationalLevel[];
+};
+
 export type UserPayload = {
   name: string;
   email: string;
@@ -44,10 +59,60 @@ export const levelService = {
     return ensureArray(data) as EducationalLevel[];
   },
 
-  getForUser: async (uuid: string): Promise<{
-    usuario: unknown;
-    niveles: EducationalLevel[];
-  }> => {
+  create: async (
+    payload: EducationalLevelPayload,
+  ): Promise<EducationalLevel> => {
+    const res = await fetch(`${BASE_URL}/niveles`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible crear el nivel (${res.status})`,
+      );
+    }
+
+    return (data.nivel ?? data) as EducationalLevel;
+  },
+
+  update: async (
+    uuid: string,
+    payload: EducationalLevelUpdate,
+  ): Promise<EducationalLevel> => {
+    const res = await fetch(`${BASE_URL}/niveles/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible actualizar el nivel (${res.status})`,
+      );
+    }
+
+    return (data.nivel ?? data) as EducationalLevel;
+  },
+
+  delete: async (uuid: string): Promise<void> => {
+    const res = await fetch(`${BASE_URL}/niveles/${uuid}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible eliminar el nivel (${res.status})`,
+      );
+    }
+  },
+
+  getForUser: async (uuid: string): Promise<UserLevelsResponse> => {
     const res = await fetch(
       `${BASE_URL}/usuarios/${uuid}/niveles`,
       fetchConfig,
@@ -57,6 +122,32 @@ export const levelService = {
     if (!res.ok) {
       throw new Error(
         data?.msg || `No fue posible obtener los niveles del usuario (${res.status})`,
+      );
+    }
+
+    return {
+      usuario: data.usuario,
+      niveles: ensureArray(data.niveles) as EducationalLevel[],
+    };
+  },
+
+  replaceForUser: async (
+    uuid: string,
+    nivelIds: number[],
+  ): Promise<UserLevelsResponse> => {
+    const res = await fetch(
+      `${BASE_URL}/usuarios/${uuid}/niveles`,
+      {
+        ...fetchConfig,
+        method: 'PUT',
+        body: JSON.stringify({ nivelIds }),
+      },
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible asignar los niveles (${res.status})`,
       );
     }
 
