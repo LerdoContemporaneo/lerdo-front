@@ -522,7 +522,7 @@ export default function IncidentsPage() {
 
   return (
     <ProtectedRoute
-      allowedRoles={['administrador', 'maestro', 'alumno']}
+      allowedRoles={['administrador', 'coordinador', 'maestro', 'alumno']}
     >
       <AppLayout>
         <div className="space-y-6">

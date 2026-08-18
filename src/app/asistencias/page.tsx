@@ -158,6 +158,7 @@ export default function StudentAttendancePage() {
   const { user } = useAuth();
 
   const isAdmin = user?.role === "administrador";
+  const isCoordinator = user?.role === "coordinador";
   const isTeacher = user?.role === "maestro";
   const currentUserId = Number(
     (user as { id?: number; userId?: number } | null)?.id ??
@@ -235,10 +236,14 @@ export default function StudentAttendancePage() {
   };
 
   useEffect(() => {
-    if (isAdmin || isTeacher) {
+    if (isAdmin || isCoordinator || isTeacher) {
       void loadData();
     }
-  }, [isAdmin, isTeacher]);
+  }, [isAdmin, isCoordinator, isTeacher]);
+
+  useEffect(() => {
+    if (isCoordinator) setActiveTab("history");
+  }, [isCoordinator]);
 
   const availableGrades = useMemo(() => {
     const assignedGrades = grades.filter(
@@ -531,7 +536,7 @@ return attendanceService.create(payload);
   };
 
   return (
-    <ProtectedRoute allowedRoles={["administrador", "maestro"]}>
+    <ProtectedRoute allowedRoles={["administrador", "coordinador", "maestro"]}>
       <AppLayout>
         <div className="mx-auto max-w-7xl space-y-5">
           <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-red-950 via-red-900 to-red-800 text-white shadow-sm">
@@ -547,8 +552,9 @@ return attendanceService.create(payload);
                   Asistencia de alumnos
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-red-100 sm:text-base">
-                  Selecciona tu clase, marca las excepciones y guarda la lista
-                  en pocos segundos.
+                  {isCoordinator
+                    ? "Consulta el historial de asistencia de los grupos de tus niveles."
+                    : "Selecciona tu clase, marca las excepciones y guarda la lista en pocos segundos."}
                 </p>
               </div>
 
@@ -562,17 +568,19 @@ return attendanceService.create(payload);
           </section>
 
           <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab("capture")}
-              className={`flex-1 rounded-lg px-5 py-2.5 text-sm font-semibold transition sm:flex-none ${
-                activeTab === "capture"
-                  ? "bg-red-900 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Tomar asistencia
-            </button>
+            {!isCoordinator && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("capture")}
+                className={`flex-1 rounded-lg px-5 py-2.5 text-sm font-semibold transition sm:flex-none ${
+                  activeTab === "capture"
+                    ? "bg-red-900 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Tomar asistencia
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setActiveTab("history")}

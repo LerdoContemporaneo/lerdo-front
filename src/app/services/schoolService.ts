@@ -208,7 +208,11 @@ delete: async (uuid: string) => {
       ...fetchConfig, 
       method: 'DELETE' 
     });
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.msg || `No fue posible eliminar el usuario (${res.status})`);
+    }
+    return data;
   }
 };
 
@@ -307,6 +311,7 @@ export const gradeService = {
 
   create: async (data: {
     nombre: string;
+    nivelId: number;
     maestroId: number;
   }) => {
     const res = await fetch(`${BASE_URL}/grados`, {
@@ -331,6 +336,7 @@ export const gradeService = {
     uuid: string,
     data: {
       nombre: string;
+      nivelId: number;
       maestroId: number;
     }
   ) => {

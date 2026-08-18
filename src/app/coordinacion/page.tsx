@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import AppLayout from '../components/AppLayout';
 import ProtectedRoute from '../components/ProtectedRoute';
 import {
@@ -63,24 +64,37 @@ export default function CoordinatorPage() {
               Tu cuenta todavía no tiene niveles asignados. Solicita al administrador que realice la asignación.
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {levels.map((level) => (
-                <article
-                  key={level.uuid}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                    Nivel {level.orden}
-                  </p>
-                  <h2 className="mt-1 text-xl font-bold text-gray-900">
-                    {level.nombre}
-                  </h2>
-                  <p className="mt-4 text-sm text-gray-500">
-                    Clave: {level.clave}
-                  </p>
-                </article>
-              ))}
-            </div>
+            <>
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  ['/admin', 'Usuarios', 'Crear maestros y alumnos'],
+                  ['/grupos', 'Grupos', 'Organizar grupos por nivel'],
+                  ['/alumnos', 'Alumnos', 'Vincular cuentas y grupos'],
+                  ['/tareas', 'Tareas', 'Consultar tareas asignadas'],
+                  ['/asistencias', 'Asistencia', 'Revisar el historial'],
+                  ['/reportes', 'Reportes', 'Consultar reportes escolares'],
+                  ['/incidents', 'Incidencias', 'Revisar incidencias'],
+                ].map(([href, title, description]) => (
+                  <Link key={href} href={href} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-red-200 hover:shadow-md">
+                    <h2 className="font-bold text-red-900">{title}</h2>
+                    <p className="mt-1 text-sm text-gray-500">{description}</p>
+                  </Link>
+                ))}
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-lg font-bold text-gray-900">Tus niveles educativos</h2>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {levels.map((level) => (
+                    <article key={level.uuid} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Nivel {level.orden}</p>
+                      <h3 className="mt-1 text-xl font-bold text-gray-900">{level.nombre}</h3>
+                      <p className="mt-4 text-sm text-gray-500">Clave: {level.clave}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </>
           )}
         </div>
       </AppLayout>

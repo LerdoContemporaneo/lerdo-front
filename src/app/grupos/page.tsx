@@ -12,8 +12,10 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import {
   gradeService,
+  levelService,
   studentService,
   userService,
+  type EducationalLevel,
 } from '../services/schoolService';
 import { useAuth } from '../hooks/useAuth';
 
@@ -25,12 +27,14 @@ type Teacher = {
   name: string;
   email?: string;
   role: string;
+  niveles?: EducationalLevel[];
 };
 
 type StudentGrade = {
   id: number;
   uuid: string;
   nombre: string;
+  nivelId?: number | null;
 };
 
 type Student = {
@@ -46,6 +50,8 @@ type Group = {
   id: number;
   uuid: string;
   nombre: string;
+  nivelId: number | null;
+  nivel?: EducationalLevel | null;
   maestroId: number | null;
   maestro?: Teacher | null;
   alumnos?: Student[];
@@ -60,13 +66,18 @@ const Alert = Swal.mixin({
 export default function GroupsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'administrador';
+  const isCoordinator = user?.role === 'coordinador';
+  const canManage = isAdmin || isCoordinator;
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [levels, setLevels] = useState<EducationalLevel[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [selectedLevelId, setSelectedLevelId] = useState('');
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
   const [rosterGroup, setRosterGroup] = useState<Group | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
@@ -85,10 +96,11 @@ export default function GroupsPage() {
     try {
       setLoadingData(true);
 
-      const [groupsData, usersData, studentsData] = await Promise.all([
+      const [groupsData, usersData, studentsData, levelsData] = await Promise.all([
         gradeService.getAll(),
-        isAdmin ? userService.getAll() : Promise.resolve([]),
-        isAdmin ? studentService.getAll() : Promise.resolve([]),
+        canManage ? userService.getAll() : Promise.resolve([]),
+        canManage ? studentService.getAll() : Promise.resolve([]),
+        canManage ? levelService.getAll() : Promise.resolve([]),
       ]);
 
       const loadedGroups: Group[] = Array.isArray(groupsData)
@@ -97,10 +109,11 @@ export default function GroupsPage() {
 
       setGroups(loadedGroups);
       setStudents(Array.isArray(studentsData) ? studentsData : []);
+      setLevels(Array.isArray(levelsData) ? levelsData : []);
 
       const users = Array.isArray(usersData) ? usersData : [];
 
-      if (isAdmin) {
+      if (canManage) {
         setTeachers(
           users.filter((currentUser: Teacher) => {
             return currentUser.role === 'maestro';
@@ -141,10 +154,19 @@ export default function GroupsPage() {
   };
 
   useEffect(() => {
-    if (user?.role === 'administrador' || user?.role === 'maestro') {
+    if (['administrador', 'coordinador', 'maestro'].includes(user?.role ?? '')) {
       void loadData();
     }
   }, [user?.role]);
+
+  const levelTeachers = useMemo(() => {
+    const nivelId = Number(selectedLevelId);
+    if (!nivelId) return [];
+
+    return teachers.filter((teacher) =>
+      teacher.niveles?.some((nivel) => Number(nivel.id) === nivelId),
+    );
+  }, [teachers, selectedLevelId]);
 
   const filteredGroups = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -253,11 +275,15 @@ export default function GroupsPage() {
 
   const handleOpenCreate = () => {
     setEditingGroup(null);
+    setSelectedLevelId(String(levels.find((level) => level.activo)?.id ?? ''));
+    setSelectedTeacherId('');
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (group: Group) => {
     setEditingGroup(group);
+    setSelectedLevelId(group.nivelId ? String(group.nivelId) : '');
+    setSelectedTeacherId(group.maestroId ? String(group.maestroId) : '');
     setIsModalOpen(true);
   };
 
@@ -265,6 +291,8 @@ export default function GroupsPage() {
     if (saving) return;
 
     setEditingGroup(null);
+    setSelectedLevelId('');
+    setSelectedTeacherId('');
     setIsModalOpen(false);
   };
 
@@ -391,13 +419,14 @@ export default function GroupsPage() {
 
     const rows = filteredGroups.map((group) => [
       group.nombre,
+      group.nivel?.nombre || 'Sin nivel',
       group.maestro?.name || 'Sin asignar',
       group.maestro?.email || '',
       group.maestroId ? 'Asignado' : 'Sin asignar',
     ]);
 
     const csv = [
-      ['Grupo', 'Maestro', 'Correo', 'Estado'],
+      ['Grupo', 'Nivel', 'Maestro', 'Correo', 'Estado'],
       ...rows,
     ]
       .map((row) => row.map(escapeCsv).join(','))
@@ -424,9 +453,8 @@ export default function GroupsPage() {
     const formData = new FormData(event.currentTarget);
 
     const nombre = String(formData.get('nombre') || '').trim();
-    const maestroIdValue = String(
-      formData.get('maestroId') || ''
-    ).trim();
+    const maestroIdValue = selectedTeacherId;
+    const nivelId = Number(selectedLevelId);
 
     if (!nombre) {
       await Alert.fire({
@@ -436,6 +464,16 @@ export default function GroupsPage() {
         confirmButtonText: 'Aceptar',
       });
 
+      return;
+    }
+
+    if (!Number.isInteger(nivelId) || nivelId <= 0) {
+      await Alert.fire({
+        title: 'Nivel obligatorio',
+        text: 'Selecciona el nivel educativo del grupo.',
+        icon: 'warning',
+        confirmButtonText: 'Aceptar',
+      });
       return;
     }
 
@@ -463,7 +501,7 @@ export default function GroupsPage() {
       return;
     }
 
-    const selectedTeacher = teachers.find(
+    const selectedTeacher = levelTeachers.find(
       (teacher) => teacher.id === maestroId
     );
 
@@ -501,6 +539,7 @@ export default function GroupsPage() {
 
     const payload = {
       nombre,
+      nivelId,
       maestroId,
     };
 
@@ -608,7 +647,7 @@ export default function GroupsPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['administrador', 'maestro']}>
+    <ProtectedRoute allowedRoles={['administrador', 'coordinador', 'maestro']}>
       <AppLayout>
         <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -623,7 +662,7 @@ export default function GroupsPage() {
               </p>
             </div>
 
-            {isAdmin && (
+            {canManage && (
               <Button
                 onClick={handleOpenCreate}
                 className="bg-red-900 text-white hover:bg-red-800"
@@ -751,6 +790,11 @@ export default function GroupsPage() {
                       ),
                     },
                     {
+                      key: 'nivel',
+                      header: 'Nivel',
+                      render: (group: Group) => group.nivel?.nombre || 'Sin nivel',
+                    },
+                    {
                       key: 'alumnos',
                       header: 'Alumnos',
                       render: (group: Group) => (
@@ -777,7 +821,7 @@ export default function GroupsPage() {
                       key: 'actions',
                       header: 'Acciones',
                       render: (group: Group) =>
-                        isAdmin ? (
+                        canManage ? (
                           <div className="flex flex-wrap gap-2">
                             <Button
                               type="button"
@@ -842,9 +886,11 @@ export default function GroupsPage() {
                         <p className="mt-1 font-semibold text-blue-700">
                           {group.alumnos?.length ?? 0}
                         </p>
+                        <p className="mt-3 text-xs text-gray-400">Nivel educativo</p>
+                        <p className="mt-1 font-medium text-gray-800">{group.nivel?.nombre || 'Sin nivel'}</p>
                       </div>
 
-                      {isAdmin ? (
+                      {canManage ? (
                         <div className="mt-4 grid gap-2 sm:grid-cols-3">
                           <Button
                             type="button"
@@ -952,27 +998,50 @@ export default function GroupsPage() {
             />
 
             <Select
+              label="Nivel educativo"
+              name="nivelId"
+              required
+              value={selectedLevelId}
+              onChange={(event) => {
+                const nextLevelId = event.target.value;
+                setSelectedLevelId(nextLevelId);
+                const currentTeacher = teachers.find(
+                  (teacher) => String(teacher.id) === selectedTeacherId,
+                );
+                if (!currentTeacher?.niveles?.some(
+                  (nivel) => String(nivel.id) === nextLevelId,
+                )) {
+                  setSelectedTeacherId('');
+                }
+              }}
+              options={[
+                { label: 'Selecciona un nivel', value: '' },
+                ...levels.filter((level) => level.activo).map((level) => ({
+                  label: level.nombre,
+                  value: String(level.id),
+                })),
+              ]}
+            />
+
+            <Select
               label="Maestro responsable"
               name="maestroId"
               required
-              defaultValue={
-                editingGroup?.maestroId
-                  ? String(editingGroup.maestroId)
-                  : ''
-              }
+              value={selectedTeacherId}
+              onChange={(event) => setSelectedTeacherId(event.target.value)}
               options={[
                 {
                   label: 'Selecciona un maestro',
                   value: '',
                 },
-                ...teachers.map((teacher) => ({
+                ...levelTeachers.map((teacher) => ({
                   label: teacher.name,
                   value: String(teacher.id),
                 })),
               ]}
             />
 
-            {teachers.length === 0 && (
+            {selectedLevelId && levelTeachers.length === 0 && (
               <p className="text-sm text-amber-700">
                 No hay maestros disponibles. Primero registra un usuario
                 con rol de maestro.
@@ -981,7 +1050,7 @@ export default function GroupsPage() {
 
             <Button
               type="submit"
-              disabled={saving || teachers.length === 0}
+              disabled={saving || !selectedLevelId || levelTeachers.length === 0}
               className="w-full bg-red-900 text-white hover:bg-red-800"
             >
               {saving

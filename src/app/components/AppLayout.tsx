@@ -24,20 +24,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     roles: UserRole[];
   }> = [
     { name: 'Dashboard', href: dashboardHref, roles: ['administrador', 'coordinador', 'maestro', 'alumno'] },
-    { name: 'Administración', href: '/admin', roles: ['administrador'] },
+    { name: 'Usuarios', href: '/admin', roles: ['administrador', 'coordinador'] },
     //corregir nombre y logica de esta pagina
     //{ name: 'Maestros', href: '/teachers', roles: ['administrador', 'maestro'] },
     { name: 'Mi Perfil', href: '/me/alumno', roles: ['alumno'] },
     { name: 'Mis grupos', href: '/me/maestro', roles: ['maestro'] },
     { name: 'Panel de Control', href: '/admin/me', roles: ['administrador'] },
-    { name: 'Asistencia', href: '/asistencias', roles: ['administrador', 'maestro'] },
+    { name: 'Asistencia', href: '/asistencias', roles: ['administrador', 'coordinador', 'maestro'] },
      { name: 'Asistencia Maestro', href: '/asistenciasmaestros', roles: ['administrador'] },
     { name: 'Soporte', href: '/soporte', roles: ['administrador', 'maestro'] },
-    { name: 'Grupos', href: '/grupos', roles: ['administrador', 'maestro'] },
-    { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'maestro'] },
-    { name: 'Tareas', href: '/tareas', roles: ['administrador', 'maestro'] },
-    { name: 'Reportes', href: '/reportes', roles: ['administrador', 'maestro'] },
-    { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'maestro', 'alumno'] },
+    { name: 'Grupos', href: '/grupos', roles: ['administrador', 'coordinador', 'maestro'] },
+    { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'coordinador', 'maestro'] },
+    { name: 'Tareas', href: '/tareas', roles: ['administrador', 'coordinador', 'maestro'] },
+    { name: 'Reportes', href: '/reportes', roles: ['administrador', 'coordinador', 'maestro'] },
+    { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'coordinador', 'maestro', 'alumno'] },
   ];
 
   // Filtramos los enlaces para mostrar SOLO los que el usuario tiene permiso de ver

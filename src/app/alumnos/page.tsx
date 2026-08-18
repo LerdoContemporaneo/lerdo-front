@@ -8,10 +8,12 @@ import { Select } from "../components/ui/Select";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import Pagination from "../components/ui/Pagination";
+import ProtectedRoute from "../components/ProtectedRoute";
 import {
   studentService,
   gradeService,
   userService,
+  type EducationalLevel,
 } from "../services/schoolService";
 import { useAuth } from "../hooks/useAuth";
 
@@ -27,6 +29,7 @@ type Grade = {
   id: number;
   uuid: string;
   nombre: string;
+  nivelId?: number | null;
   maestroId: number | string | null;
   maestro?: Teacher | null;
   Maestro?: Teacher | null;
@@ -38,6 +41,7 @@ type StudentUser = {
   name: string;
   email: string;
   role: string;
+  niveles?: EducationalLevel[];
 };
 
 type Student = {
@@ -80,6 +84,8 @@ export default function StudentsPage() {
   const { user } = useAuth();
 
   const isAdmin = user?.role === "administrador";
+  const isCoordinator = user?.role === "coordinador";
+  const canManage = isAdmin || isCoordinator;
   const isTeacher = user?.role === "maestro";
 
   const [students, setStudents] = useState<Student[]>([]);
@@ -94,6 +100,7 @@ export default function StudentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedGradeIds, setSelectedGradeIds] = useState<number[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
 
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,7 +120,7 @@ const loadData = useCallback(async () => {
       await Promise.allSettled([
         studentService.getAll(),
         gradeService.getAll(),
-        isAdmin
+        canManage
           ? userService.getAll()
           : Promise.resolve([]),
       ]);
@@ -171,7 +178,7 @@ const loadData = useCallback(async () => {
   } finally {
     setLoadingData(false);
   }
-}, [user, isAdmin]);
+}, [user, canManage]);
 
 useEffect(() => {
   if (!user) return;
@@ -386,6 +393,7 @@ useEffect(() => {
   const handleOpenCreate = () => {
     setEditingStudent(null);
     setSelectedGradeIds([]);
+    setSelectedUserId("");
     setIsModalOpen(true);
   };
 
@@ -401,7 +409,30 @@ useEffect(() => {
     setIsModalOpen(false);
     setEditingStudent(null);
     setSelectedGradeIds([]);
+    setSelectedUserId("");
   };
+
+  const selectedUserForForm = useMemo(
+    () => availableUsers.find(
+      (candidate) => String(candidate.id) === selectedUserId,
+    ) ?? null,
+    [availableUsers, selectedUserId],
+  );
+
+  const modalAssignableGrades = useMemo(() => {
+    const editingLevelId = editingStudent
+      ? assignableGrades.find((grade) =>
+          getStudentGradeIds(editingStudent).includes(Number(grade.id)),
+        )?.nivelId
+      : null;
+    const selectedUserLevelId = selectedUserForForm?.niveles?.[0]?.id;
+    const nivelId = Number(editingLevelId ?? selectedUserLevelId);
+
+    if (!nivelId) return [];
+    return assignableGrades.filter(
+      (grade) => Number(grade.nivelId) === nivelId,
+    );
+  }, [assignableGrades, editingStudent, selectedUserForForm]);
 
   const toggleGrade = (gradeId: number) => {
     setSelectedGradeIds((currentIds) =>
@@ -415,13 +446,9 @@ useEffect(() => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
-    const selectedUserId = String(formData.get("userId") || "");
+    const selectedUser = selectedUserForForm;
 
-    const selectedUser = availableUsers.find(
-      (candidate) => String(candidate.id) === selectedUserId,
-    );
-
-    const validSelectedGrades = assignableGrades.filter((grade) =>
+    const validSelectedGrades = modalAssignableGrades.filter((grade) =>
       selectedGradeIds.includes(Number(grade.id)),
     );
 
@@ -469,6 +496,7 @@ useEffect(() => {
       setIsModalOpen(false);
       setEditingStudent(null);
       setSelectedGradeIds([]);
+      setSelectedUserId("");
       await loadData();
     } catch (error) {
       console.error("Error guardando alumno:", error);
@@ -518,6 +546,7 @@ useEffect(() => {
   };
 
   return (
+    <ProtectedRoute allowedRoles={["administrador", "coordinador", "maestro"]}>
     <AppLayout>
       <div className="space-y-6">
         <div className="rounded-lg bg-white p-6 shadow-sm">
@@ -534,7 +563,7 @@ useEffect(() => {
               </p>
             </div>
 
-            {isAdmin && (
+            {canManage && (
               <Button
                 type="button"
                 onClick={handleOpenCreate}
@@ -739,7 +768,7 @@ useEffect(() => {
                       key: "actions",
                       header: "Acciones",
                       render: (student: Student) =>
-                        isAdmin ? (
+                        canManage ? (
                           <div className="flex gap-2">
                             <Button
                               type="button"
@@ -844,7 +873,7 @@ useEffect(() => {
                       </p>
                     </div>
 
-                    {isAdmin && (
+                    {canManage && (
                       <div className="mt-4 flex gap-2 border-t pt-4">
                         <Button
                           type="button"
@@ -907,6 +936,11 @@ useEffect(() => {
                   label="Usuario alumno sin vincular"
                   name="userId"
                   required
+                  value={selectedUserId}
+                  onChange={(event) => {
+                    setSelectedUserId(event.target.value);
+                    setSelectedGradeIds([]);
+                  }}
                   options={[
                     {
                       label: "Selecciona un usuario alumno",
@@ -958,12 +992,12 @@ useEffect(() => {
                 </legend>
 
                 <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-md border border-gray-300 p-2">
-                  {assignableGrades.length === 0 ? (
+                  {modalAssignableGrades.length === 0 ? (
                     <p className="p-2 text-sm text-gray-500">
-                      No hay grupos disponibles.
+                      Selecciona un usuario con nivel asignado o crea un grupo disponible para su nivel.
                     </p>
                   ) : (
-                    assignableGrades.map((grade) => {
+                    modalAssignableGrades.map((grade) => {
                       const gradeId = Number(grade.id);
                       const checked = selectedGradeIds.includes(gradeId);
 
@@ -1010,7 +1044,7 @@ useEffect(() => {
                 </p>
               </fieldset>
 
-              {assignableGrades.length === 0 && (
+              {modalAssignableGrades.length === 0 && (
                 <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
                   No hay grupos disponibles con un maestro asignado. Primero
                   asigna un maestro desde Gestión de Grupos.
@@ -1022,7 +1056,7 @@ useEffect(() => {
                 className="w-full bg-red-900 text-white hover:bg-red-800"
                 disabled={
                   saving ||
-                  assignableGrades.length === 0 ||
+                  modalAssignableGrades.length === 0 ||
                   selectedGradeIds.length === 0
                 }
               >
@@ -1037,5 +1071,6 @@ useEffect(() => {
         </form>
       </Modal>
     </AppLayout>
+    </ProtectedRoute>
   );
 }

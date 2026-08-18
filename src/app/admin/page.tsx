@@ -17,6 +17,7 @@ import {
 import ProtectedRoute from '../components/ProtectedRoute';
 import Swal from 'sweetalert2';
 import type { UserRole } from '../types/auth';
+import { useAuth } from '../hooks/useAuth';
 
 const USERS_PER_PAGE = 10;
 
@@ -64,6 +65,8 @@ function Icon({ name }: { name: 'users' | 'search' | 'plus' | 'edit' | 'trash' |
 }
 
 export default function AdminPage() {
+  const { user: currentUser } = useAuth();
+  const isCoordinator = currentUser?.role === 'coordinador';
   const [users, setUsers] = useState<User[]>([]);
   const [levels, setLevels] = useState<EducationalLevel[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -296,16 +299,16 @@ export default function AdminPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['administrador']}>
+    <ProtectedRoute allowedRoles={['administrador', 'coordinador']}>
       <AppLayout>
         <main className="mx-auto w-full max-w-7xl space-y-6 pb-10">
           <header className="flex flex-col gap-5 rounded-2xl bg-gradient-to-br from-red-950 via-red-900 to-red-800 p-6 text-white shadow-lg shadow-red-950/10 sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div className="flex items-start gap-4">
               <div className="hidden rounded-xl bg-white/10 p-3 ring-1 ring-white/20 sm:block"><Icon name="users" /></div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200">Administración</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200">{isCoordinator ? 'Coordinación' : 'Administración'}</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Gestión de usuarios</h1>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-red-100">Crea cuentas, actualiza su información y asigna los permisos correctos.</p>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-red-100">{isCoordinator ? 'Crea y administra maestros y alumnos de tus niveles asignados.' : 'Crea cuentas, actualiza su información y asigna los permisos correctos.'}</p>
               </div>
             </div>
             <Button onClick={handleOpenCreate} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl  px-5 font-semibold text-red-900 shadow-sm transition  focus-visible:ring-2 focus-visible:ring-white">
@@ -314,13 +317,17 @@ export default function AdminPage() {
           </header>
 
           <section aria-label="Resumen de usuarios" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            {[
+            {(isCoordinator ? [
+              ['Total', users.length, 'text-gray-900'],
+              ['Maestros', roleCounts.maestros, 'text-blue-700'],
+              ['Alumnos', roleCounts.alumnos, 'text-emerald-700'],
+            ] : [
               ['Total', users.length, 'text-gray-900'],
               ['Administradores', roleCounts.administradores, 'text-red-700'],
               ['Coordinadores', roleCounts.coordinadores, 'text-amber-700'],
               ['Maestros', roleCounts.maestros, 'text-blue-700'],
               ['Alumnos', roleCounts.alumnos, 'text-emerald-700'],
-            ].map(([label, value, color]) => (
+            ]).map(([label, value, color]) => (
               <div key={String(label)} className="rounded-2xl border border-gray-200 p-4 shadow-sm sm:p-5">
                 <p className="text-xs font-medium text-gray-500 sm:text-sm">{label}</p>
                 <p className={`mt-1 text-2xl font-bold ${color}`}>{loadingUsers ? '—' : value}</p>
@@ -345,8 +352,10 @@ export default function AdminPage() {
                 </div>
                 <Select label="Filtrar por rol" name="roleFilter" value={roleFilter} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setRoleFilter(event.target.value)} options={[
                   { label: 'Todos los roles', value: 'todos' },
-                  { label: 'Administradores', value: 'administrador' },
-                  { label: 'Coordinadores', value: 'coordinador' },
+                  ...(!isCoordinator ? [
+                    { label: 'Administradores', value: 'administrador' },
+                    { label: 'Coordinadores', value: 'coordinador' },
+                  ] : []),
                   { label: 'Maestros', value: 'maestro' },
                   { label: 'Alumnos', value: 'alumno' },
                 ]} />
@@ -398,7 +407,10 @@ export default function AdminPage() {
             <p className="-mt-2 text-sm leading-6 text-gray-500">{editingUser ? 'Actualiza los datos de la cuenta. Los campos con * son obligatorios.' : 'Completa los datos para agregar una cuenta al portal.'}</p>
             <Input label="Nombre completo *" name="name" autoComplete="name" defaultValue={editingUser?.name || ''} placeholder="Ej. Ana García" required />
             <Input label="Correo electrónico *" name="email" type="email" autoComplete="email" defaultValue={editingUser?.email || ''} placeholder="nombre@escuela.edu" required />
-            <Select label="Rol de usuario *" name="role" required value={selectedRole} onChange={(event) => handleRoleChange(event.target.value as UserRole)} options={[
+            <Select label="Rol de usuario *" name="role" required value={selectedRole} onChange={(event) => handleRoleChange(event.target.value as UserRole)} options={isCoordinator ? [
+              { label: 'Maestro', value: 'maestro' },
+              { label: 'Alumno', value: 'alumno' },
+            ] : [
               { label: 'Coordinador', value: 'coordinador' },
               { label: 'Maestro', value: 'maestro' },
               { label: 'Administrador', value: 'administrador' },
