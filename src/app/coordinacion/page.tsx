@@ -71,6 +71,7 @@ export default function CoordinatorPage() {
                   ['/grupos', 'Grupos', 'Organizar grupos por nivel'],
                   ['/alumnos', 'Alumnos', 'Vincular cuentas y grupos'],
                   ['/recursos-academicos', 'Recursos', 'Enviar enlaces o PDF a maestros'],
+                  ['/horarios', 'Horarios', 'Generar clases y asignar salones'],
                   ['/tareas', 'Tareas', 'Consultar tareas asignadas'],
                   ['/asistencias', 'Asistencia', 'Revisar el historial'],
                   ['/reportes', 'Reportes', 'Consultar reportes escolares'],

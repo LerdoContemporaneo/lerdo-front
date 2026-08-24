@@ -19,42 +19,18 @@ import { useAuth } from '../hooks/useAuth';
 import {
   academicResourceService,
   gradeService,
-  subjectService,
-  userService,
   type AcademicGroup,
   type AcademicResource,
   type AcademicResourcePayload,
-  type AcademicTeacher,
-  type EducationalLevel,
-  type Subject,
-  type SubjectPayload,
 } from '../services/schoolService';
-
-type Teacher = AcademicTeacher & {
-  role: string;
-  niveles?: EducationalLevel[];
-};
-
-type SubjectFormState = {
-  nombre: string;
-  gradoId: string;
-  maestroId: string;
-};
 
 type ResourceFormState = {
   titulo: string;
   descripcion: string;
   tipo: 'enlace' | 'pdf';
   gradoId: string;
-  materiaId: string;
   enlace: string;
   archivo: File | null;
-};
-
-const EMPTY_SUBJECT_FORM: SubjectFormState = {
-  nombre: '',
-  gradoId: '',
-  maestroId: '',
 };
 
 const EMPTY_RESOURCE_FORM: ResourceFormState = {
@@ -62,7 +38,6 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   descripcion: '',
   tipo: 'enlace',
   gradoId: '',
-  materiaId: '',
   enlace: '',
   archivo: null,
 };
@@ -97,16 +72,9 @@ const fileToDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-const uniqueGroupsFromSubjects = (subjects: Subject[]) => {
-  const groups = new Map<number, AcademicGroup>();
-
-  subjects.forEach((subject) => {
-    if (subject.grado) groups.set(subject.grado.id, subject.grado);
-  });
-
-  return [...groups.values()].sort((a, b) =>
-    a.nombre.localeCompare(b.nombre, 'es')
-  );
+const groupLabel = (group: AcademicGroup) => {
+  const level = group.nivel?.nombre ? ` · ${group.nivel.nombre}` : '';
+  return `${group.nombre}${level}`;
 };
 
 export default function AcademicResourcesPage() {
@@ -114,21 +82,11 @@ export default function AcademicResourcesPage() {
   const canManage =
     user?.role === 'administrador' || user?.role === 'coordinador';
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [resources, setResources] = useState<AcademicResource[]>([]);
   const [groups, setGroups] = useState<AcademicGroup[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [resources, setResources] = useState<AcademicResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [downloadingUuid, setDownloadingUuid] = useState<string | null>(
-    null
-  );
-
-  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [subjectForm, setSubjectForm] = useState<SubjectFormState>(
-    EMPTY_SUBJECT_FORM
-  );
+  const [downloadingUuid, setDownloadingUuid] = useState<string | null>(null);
 
   const [resourceModalOpen, setResourceModalOpen] = useState(false);
   const [editingResource, setEditingResource] =
@@ -139,7 +97,6 @@ export default function AcademicResourcesPage() {
 
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('todos');
-  const [subjectFilter, setSubjectFilter] = useState('todas');
   const [typeFilter, setTypeFilter] = useState('todos');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -148,111 +105,64 @@ export default function AcademicResourcesPage() {
 
     try {
       setLoading(true);
-
-      const [subjectData, resourceData] = await Promise.all([
-        subjectService.getAll(),
+      const [groupData, resourceData] = await Promise.all([
+        gradeService.getAll(),
         academicResourceService.getAll(),
       ]);
 
-      setSubjects(subjectData);
+      setGroups(
+        (groupData as AcademicGroup[]).sort((a, b) =>
+          a.nombre.localeCompare(b.nombre, 'es')
+        )
+      );
       setResources(resourceData);
-
-      if (canManage) {
-        const [groupData, userData] = await Promise.all([
-          gradeService.getAll(),
-          userService.getAll(),
-        ]);
-
-        setGroups(groupData as AcademicGroup[]);
-        setTeachers(
-          (userData as Teacher[]).filter((item) => item.role === 'maestro')
-        );
-      } else {
-        setGroups(uniqueGroupsFromSubjects(subjectData));
-        setTeachers([]);
-      }
     } catch (error) {
       console.error('Error cargando recursos academicos:', error);
       await Swal.fire({
         icon: 'error',
         title: 'No fue posible cargar los recursos',
-        text: getErrorMessage(
-          error,
-          'Verifica la conexion con el servidor.'
-        ),
+        text: getErrorMessage(error, 'Verifica la conexion con el servidor.'),
       });
     } finally {
       setLoading(false);
     }
-  }, [canManage, user]);
+  }, [user]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  const selectedSubjectGroup = useMemo(
+  const selectedGroup = useMemo(
     () =>
-      groups.find(
-        (group) => String(group.id) === subjectForm.gradoId
-      ) ?? null,
-    [groups, subjectForm.gradoId]
-  );
-
-  const teachersForSelectedGroup = useMemo(() => {
-    if (!selectedSubjectGroup?.nivelId) return [];
-
-    return teachers.filter((teacher) =>
-      teacher.niveles?.some(
-        (level) => Number(level.id) === Number(selectedSubjectGroup.nivelId)
-      )
-    );
-  }, [selectedSubjectGroup, teachers]);
-
-  const subjectsForResourceGroup = useMemo(
-    () =>
-      subjects.filter(
-        (subject) => String(subject.gradoId) === resourceForm.gradoId
-      ),
-    [subjects, resourceForm.gradoId]
-  );
-
-  const selectedResourceSubject = useMemo(
-    () =>
-      subjects.find(
-        (subject) => String(subject.id) === resourceForm.materiaId
-      ) ?? null,
-    [subjects, resourceForm.materiaId]
+      groups.find((group) => String(group.id) === resourceForm.gradoId) ??
+      null,
+    [groups, resourceForm.gradoId]
   );
 
   const filteredResources = useMemo(() => {
     const normalized = search.trim().toLowerCase();
 
     return resources.filter((resource) => {
-      const subject = resource.materia;
-      const group = subject?.grado;
-      const teacher = subject?.maestro;
+      const group = resource.grado;
       const matchesSearch =
         !normalized ||
         resource.titulo.toLowerCase().includes(normalized) ||
         (resource.descripcion || '').toLowerCase().includes(normalized) ||
-        (subject?.nombre || '').toLowerCase().includes(normalized) ||
         (group?.nombre || '').toLowerCase().includes(normalized) ||
-        (teacher?.name || '').toLowerCase().includes(normalized);
+        (group?.nivel?.nombre || '').toLowerCase().includes(normalized) ||
+        (group?.maestro?.name || '').toLowerCase().includes(normalized);
       const matchesGroup =
-        groupFilter === 'todos' || String(group?.id) === groupFilter;
-      const matchesSubject =
-        subjectFilter === 'todas' ||
-        String(resource.materiaId) === subjectFilter;
+        groupFilter === 'todos' || String(resource.gradoId) === groupFilter;
       const matchesType =
         typeFilter === 'todos' || resource.tipo === typeFilter;
 
-      return matchesSearch && matchesGroup && matchesSubject && matchesType;
+      return matchesSearch && matchesGroup && matchesType;
     });
-  }, [resources, search, groupFilter, subjectFilter, typeFilter]);
+  }, [resources, search, groupFilter, typeFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, groupFilter, subjectFilter, typeFilter]);
+  }, [search, groupFilter, typeFilter]);
 
   const totalPages = Math.max(
     1,
@@ -273,129 +183,28 @@ export default function AcademicResourcesPage() {
       resources: resources.length,
       pdfs: resources.filter((resource) => resource.tipo === 'pdf').length,
       links: resources.filter((resource) => resource.tipo === 'enlace').length,
-      subjects: subjects.length,
+      groups: new Set(resources.map((resource) => resource.gradoId)).size,
     }),
-    [resources, subjects]
+    [resources]
   );
-
-  const openCreateSubject = async () => {
-    if (!canManage) return;
-
-    if (groups.length === 0 || teachers.length === 0) {
-      await Swal.fire({
-        icon: 'warning',
-        title: 'Faltan datos de configuracion',
-        text: 'Primero registra un grupo con nivel y al menos un maestro asignado a ese nivel.',
-      });
-      return;
-    }
-
-    setEditingSubject(null);
-    setSubjectForm(EMPTY_SUBJECT_FORM);
-    setSubjectModalOpen(true);
-  };
-
-  const openEditSubject = (subject: Subject) => {
-    if (!canManage) return;
-    setEditingSubject(subject);
-    setSubjectForm({
-      nombre: subject.nombre,
-      gradoId: String(subject.gradoId),
-      maestroId: String(subject.maestroId),
-    });
-    setSubjectModalOpen(true);
-  };
-
-  const saveSubject = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const payload: SubjectPayload = {
-      nombre: subjectForm.nombre.trim(),
-      gradoId: Number(subjectForm.gradoId),
-      maestroId: Number(subjectForm.maestroId),
-    };
-
-    if (
-      payload.nombre.length < 2 ||
-      !Number.isInteger(payload.gradoId) ||
-      !Number.isInteger(payload.maestroId)
-    ) {
-      await Swal.fire({
-        icon: 'warning',
-        title: 'Datos incompletos',
-        text: 'Escribe la materia y selecciona el grupo y maestro.',
-      });
-      return;
-    }
-
-    try {
-      setSaving(true);
-      if (editingSubject) {
-        await subjectService.update(editingSubject.uuid, payload);
-      } else {
-        await subjectService.create(payload);
-      }
-      setSubjectModalOpen(false);
-      setEditingSubject(null);
-      setSubjectForm(EMPTY_SUBJECT_FORM);
-      await loadData();
-      await Swal.fire({
-        icon: 'success',
-        title: editingSubject ? 'Materia actualizada' : 'Materia creada',
-        timer: 1600,
-        showConfirmButton: false,
-      });
-    } catch (error) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No fue posible guardar la materia',
-        text: getErrorMessage(error, 'Intenta nuevamente.'),
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteSubject = async (subject: Subject) => {
-    if (!canManage) return;
-
-    const result = await Swal.fire({
-      icon: 'warning',
-      title: `Eliminar ${subject.nombre}?`,
-      text: 'Tambien se eliminaran los recursos publicados para esta materia.',
-      showCancelButton: true,
-      confirmButtonText: 'Si, eliminar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#991b1b',
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      await subjectService.delete(subject.uuid);
-      await loadData();
-      await Swal.fire({
-        icon: 'success',
-        title: 'Materia eliminada',
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } catch (error) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No fue posible eliminar la materia',
-        text: getErrorMessage(error, 'Intenta nuevamente.'),
-      });
-    }
-  };
 
   const openCreateResource = async () => {
     if (!canManage) return;
 
-    if (subjects.length === 0) {
+    if (groups.length === 0) {
       await Swal.fire({
         icon: 'warning',
-        title: 'Primero crea una materia',
-        text: 'Cada recurso debe dirigirse a una materia y a su maestro asignado.',
+        title: 'No hay grupos disponibles',
+        text: 'Primero crea un grupo dentro de uno de tus niveles educativos.',
+      });
+      return;
+    }
+
+    if (!groups.some((group) => group.maestroId && group.maestro)) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Los grupos no tienen maestro',
+        text: 'Asigna un maestro a un grupo antes de publicar recursos.',
       });
       return;
     }
@@ -412,8 +221,7 @@ export default function AcademicResourcesPage() {
       titulo: resource.titulo,
       descripcion: resource.descripcion || '',
       tipo: resource.tipo,
-      gradoId: String(resource.materia?.gradoId || ''),
-      materiaId: String(resource.materiaId),
+      gradoId: String(resource.gradoId),
       enlace: resource.enlace || '',
       archivo: null,
     });
@@ -422,18 +230,26 @@ export default function AcademicResourcesPage() {
 
   const saveResource = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const materiaId = Number(resourceForm.materiaId);
+    const gradoId = Number(resourceForm.gradoId);
 
     if (
       resourceForm.titulo.trim().length < 2 ||
-      !Number.isInteger(materiaId) ||
-      materiaId <= 0
+      !Number.isInteger(gradoId) ||
+      gradoId <= 0
     ) {
       await Swal.fire({
         icon: 'warning',
         title: 'Datos incompletos',
-        text: 'Escribe el titulo y selecciona grupo y materia.',
+        text: 'Escribe el titulo y selecciona un grupo.',
+      });
+      return;
+    }
+
+    if (!selectedGroup?.maestroId || !selectedGroup.maestro) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Grupo sin maestro',
+        text: 'Asigna primero un maestro al grupo seleccionado.',
       });
       return;
     }
@@ -464,7 +280,7 @@ export default function AcademicResourcesPage() {
       titulo: resourceForm.titulo.trim(),
       descripcion: resourceForm.descripcion.trim(),
       tipo: resourceForm.tipo,
-      materiaId,
+      gradoId,
     };
 
     if (resourceForm.tipo === 'enlace') {
@@ -502,18 +318,15 @@ export default function AcademicResourcesPage() {
       } else {
         await academicResourceService.create(payload);
       }
+
       setResourceModalOpen(false);
       setEditingResource(null);
       setResourceForm(EMPTY_RESOURCE_FORM);
       await loadData();
       await Swal.fire({
         icon: 'success',
-        title: editingResource
-          ? 'Recurso actualizado'
-          : 'Recurso publicado',
-        text: selectedResourceSubject?.maestro?.name
-          ? `Disponible para ${selectedResourceSubject.maestro.name}.`
-          : undefined,
+        title: editingResource ? 'Recurso actualizado' : 'Recurso publicado',
+        text: `Disponible para ${selectedGroup.maestro.name}.`,
         timer: 1800,
         showConfirmButton: false,
       });
@@ -530,10 +343,11 @@ export default function AcademicResourcesPage() {
 
   const deleteResource = async (resource: AcademicResource) => {
     if (!canManage) return;
+
     const result = await Swal.fire({
       icon: 'warning',
       title: `Eliminar ${resource.titulo}?`,
-      text: 'El maestro dejara de tener acceso al recurso.',
+      text: 'El maestro del grupo dejara de tener acceso al recurso.',
       showCancelButton: true,
       confirmButtonText: 'Si, eliminar',
       cancelButtonText: 'Cancelar',
@@ -584,9 +398,7 @@ export default function AcademicResourcesPage() {
   };
 
   return (
-    <ProtectedRoute
-      allowedRoles={['administrador', 'coordinador', 'maestro']}
-    >
+    <ProtectedRoute allowedRoles={['administrador', 'coordinador', 'maestro']}>
       <AppLayout>
         <div className="space-y-6">
           <header className="overflow-hidden rounded-2xl bg-gradient-to-br from-red-950 via-red-900 to-[#630330] p-6 text-white shadow-lg sm:p-8">
@@ -599,29 +411,19 @@ export default function AcademicResourcesPage() {
                   Recursos para maestros
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-red-100">
-                  Publica enlaces o archivos PDF por grupo y materia. El sistema
-                  los entrega solamente al maestro asignado.
+                  Selecciona un grupo y publica un enlace o PDF. El maestro
+                  asignado actualmente al grupo lo recibira automaticamente.
                 </p>
               </div>
 
               {canManage && (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => void openCreateSubject()}
-                    className="border-white/30 bg-white/10 text-white hover:bg-white/20"
-                  >
-                    + Nueva materia
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => void openCreateResource()}
-                    className="bg-white text-red-900 hover:bg-red-50"
-                  >
-                    + Publicar recurso
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  onClick={() => void openCreateResource()}
+                  className=" text-red-900"
+                >
+                  + Publicar recurso
+                </Button>
               )}
             </div>
           </header>
@@ -631,7 +433,7 @@ export default function AcademicResourcesPage() {
               ['Recursos visibles', metrics.resources, 'bg-red-50 text-red-800'],
               ['Archivos PDF', metrics.pdfs, 'bg-blue-50 text-blue-800'],
               ['Enlaces', metrics.links, 'bg-emerald-50 text-emerald-800'],
-              ['Materias', metrics.subjects, 'bg-amber-50 text-amber-800'],
+              ['Grupos con recursos', metrics.groups, 'bg-amber-50 text-amber-800'],
             ].map(([label, value, color]) => (
               <article
                 key={String(label)}
@@ -642,108 +444,29 @@ export default function AcademicResourcesPage() {
                 >
                   {label}
                 </span>
-                <p className="mt-3 text-3xl font-bold text-gray-900">
-                  {value}
-                </p>
+                <p className="mt-3 text-3xl font-bold text-gray-900">{value}</p>
               </article>
             ))}
           </section>
 
-          {canManage && subjects.length > 0 && (
-            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">
-                    Materias configuradas
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    La materia determina el grupo y el maestro destinatario.
-                  </p>
-                </div>
-                <span className="text-sm font-semibold text-red-800">
-                  {subjects.length} registradas
-                </span>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {subjects.map((subject) => (
-                  <article
-                    key={subject.uuid}
-                    className="rounded-xl border border-gray-200 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-bold text-gray-900">
-                          {subject.nombre}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-600">
-                          {subject.grado?.nombre || 'Grupo sin nombre'}
-                        </p>
-                        <p className="mt-1 truncate text-xs text-gray-500">
-                          Maestro: {subject.maestro?.name || 'Sin asignar'}
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEditSubject(subject)}
-                          className="rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteSubject(subject)}
-                          className="rounded-md px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
           <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-3">
               <Input
                 label="Buscar"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Titulo, materia, grupo o maestro"
+                placeholder="Titulo, grupo, nivel o maestro"
               />
               <Select
                 label="Grupo"
                 value={groupFilter}
-                onChange={(event) => {
-                  setGroupFilter(event.target.value);
-                  setSubjectFilter('todas');
-                }}
+                onChange={(event) => setGroupFilter(event.target.value)}
                 options={[
                   { label: 'Todos los grupos', value: 'todos' },
                   ...groups.map((group) => ({
-                    label: group.nombre,
+                    label: groupLabel(group),
                     value: String(group.id),
                   })),
-                ]}
-              />
-              <Select
-                label="Materia"
-                value={subjectFilter}
-                onChange={(event) => setSubjectFilter(event.target.value)}
-                options={[
-                  { label: 'Todas las materias', value: 'todas' },
-                  ...subjects
-                    .filter(
-                      (subject) =>
-                        groupFilter === 'todos' ||
-                        String(subject.gradoId) === groupFilter
-                    )
-                    .map((subject) => ({
-                      label: subject.nombre,
-                      value: String(subject.id),
-                    })),
                 ]}
               />
               <Select
@@ -770,15 +493,15 @@ export default function AcademicResourcesPage() {
               </p>
               <p className="mt-2 text-sm text-gray-500">
                 {canManage
-                  ? 'Crea una materia y publica el primer enlace o PDF.'
-                  : 'Cuando Coordinacion publique material para tus materias aparecera aqui.'}
+                  ? 'Publica el primer enlace o PDF para uno de tus grupos.'
+                  : 'Cuando Coordinacion publique material para tus grupos aparecera aqui.'}
               </p>
             </div>
           ) : (
             <>
               <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visibleResources.map((resource) => {
-                  const subject = resource.materia;
+                  const group = resource.grado;
                   const isPdf = resource.tipo === 'pdf';
 
                   return (
@@ -812,19 +535,19 @@ export default function AcademicResourcesPage() {
                         <div className="flex justify-between gap-3">
                           <dt className="text-gray-500">Grupo</dt>
                           <dd className="text-right font-semibold text-gray-800">
-                            {subject?.grado?.nombre || 'Sin grupo'}
+                            {group?.nombre || 'Sin grupo'}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-gray-500">Materia</dt>
+                          <dt className="text-gray-500">Nivel</dt>
                           <dd className="text-right font-semibold text-gray-800">
-                            {subject?.nombre || 'Sin materia'}
+                            {group?.nivel?.nombre || 'Sin nivel'}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-gray-500">Maestro</dt>
+                          <dt className="text-gray-500">Maestro en turno</dt>
                           <dd className="text-right font-semibold text-gray-800">
-                            {subject?.maestro?.name || 'Sin maestro'}
+                            {group?.maestro?.name || 'Sin maestro'}
                           </dd>
                         </div>
                         {isPdf && (
@@ -895,99 +618,6 @@ export default function AcademicResourcesPage() {
         </div>
 
         <Modal
-          open={subjectModalOpen}
-          onClose={() => {
-            if (!saving) setSubjectModalOpen(false);
-          }}
-          title={editingSubject ? 'Editar materia' : 'Nueva materia'}
-          size="md"
-        >
-          <form onSubmit={saveSubject} className="space-y-4">
-            <Input
-              label="Nombre de la materia"
-              value={subjectForm.nombre}
-              onChange={(event) =>
-                setSubjectForm((current) => ({
-                  ...current,
-                  nombre: event.target.value,
-                }))
-              }
-              maxLength={120}
-              placeholder="Ej. Programacion Web"
-              required
-            />
-            <Select
-              label="Grupo"
-              value={subjectForm.gradoId}
-              onChange={(event) =>
-                setSubjectForm((current) => ({
-                  ...current,
-                  gradoId: event.target.value,
-                  maestroId: '',
-                }))
-              }
-              options={[
-                { label: 'Selecciona un grupo', value: '' },
-                ...groups.map((group) => ({
-                  label: `${group.nombre} - ${group.nivel?.nombre || 'Sin nivel'}`,
-                  value: String(group.id),
-                })),
-              ]}
-              required
-            />
-            <Select
-              label="Maestro que impartira la materia"
-              value={subjectForm.maestroId}
-              onChange={(event) =>
-                setSubjectForm((current) => ({
-                  ...current,
-                  maestroId: event.target.value,
-                }))
-              }
-              options={[
-                {
-                  label: subjectForm.gradoId
-                    ? 'Selecciona un maestro del nivel'
-                    : 'Selecciona primero el grupo',
-                  value: '',
-                },
-                ...teachersForSelectedGroup.map((teacher) => ({
-                  label: teacher.name,
-                  value: String(teacher.id),
-                })),
-              ]}
-              disabled={!subjectForm.gradoId}
-              required
-            />
-
-            {subjectForm.gradoId && teachersForSelectedGroup.length === 0 && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                No hay maestros asignados al nivel de este grupo. Asigna el
-                nivel al maestro desde Usuarios.
-              </p>
-            )}
-
-            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setSubjectModalOpen(false)}
-                disabled={saving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={saving}
-                className="bg-red-800 hover:bg-red-900"
-              >
-                {saving ? 'Guardando...' : 'Guardar materia'}
-              </Button>
-            </div>
-          </form>
-        </Modal>
-
-        <Modal
           open={resourceModalOpen}
           onClose={() => {
             if (!saving) setResourceModalOpen(false);
@@ -1010,64 +640,51 @@ export default function AcademicResourcesPage() {
               required
             />
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="Grupo"
-                value={resourceForm.gradoId}
-                onChange={(event) =>
-                  setResourceForm((current) => ({
-                    ...current,
-                    gradoId: event.target.value,
-                    materiaId: '',
-                  }))
-                }
-                options={[
-                  { label: 'Selecciona un grupo', value: '' },
-                  ...groups.map((group) => ({
-                    label: group.nombre,
-                    value: String(group.id),
-                  })),
-                ]}
-                required
-              />
-              <Select
-                label="Materia"
-                value={resourceForm.materiaId}
-                onChange={(event) =>
-                  setResourceForm((current) => ({
-                    ...current,
-                    materiaId: event.target.value,
-                  }))
-                }
-                options={[
-                  {
-                    label: resourceForm.gradoId
-                      ? 'Selecciona una materia'
-                      : 'Selecciona primero el grupo',
-                    value: '',
-                  },
-                  ...subjectsForResourceGroup.map((subject) => ({
-                    label: subject.nombre,
-                    value: String(subject.id),
-                  })),
-                ]}
-                disabled={!resourceForm.gradoId}
-                required
-              />
-            </div>
+            <Select
+              label="Grupo destinatario"
+              value={resourceForm.gradoId}
+              onChange={(event) =>
+                setResourceForm((current) => ({
+                  ...current,
+                  gradoId: event.target.value,
+                }))
+              }
+              options={[
+                { label: 'Selecciona un grupo', value: '' },
+                ...groups.map((group) => ({
+                  label: `${groupLabel(group)} · ${
+                    group.maestro?.name || 'SIN MAESTRO'
+                  }`,
+                  value: String(group.id),
+                })),
+              ]}
+              required
+            />
 
-            {selectedResourceSubject && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Destinatario
+            {selectedGroup && (
+              <div
+                className={`rounded-xl border p-4 ${
+                  selectedGroup.maestro
+                    ? 'border-blue-200 bg-blue-50'
+                    : 'border-amber-200 bg-amber-50'
+                }`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Maestro destinatario automatico
                 </p>
-                <p className="mt-1 font-bold text-blue-950">
-                  {selectedResourceSubject.maestro?.name || 'Sin maestro'}
+                <p className="mt-1 font-bold text-gray-950">
+                  {selectedGroup.maestro?.name || 'Este grupo no tiene maestro'}
                 </p>
-                <p className="text-sm text-blue-800">
-                  {selectedResourceSubject.nombre} -{' '}
-                  {selectedResourceSubject.grado?.nombre}
+                <p className="text-sm text-gray-700">
+                  {selectedGroup.nombre} ·{' '}
+                  {selectedGroup.nivel?.nombre || 'Sin nivel'}
                 </p>
+                {!selectedGroup.maestro && (
+                  <p className="mt-2 text-sm font-medium text-amber-800">
+                    Asigna un maestro desde Administracion de grupos para poder
+                    publicar.
+                  </p>
+                )}
               </div>
             )}
 
@@ -1125,7 +742,9 @@ export default function AcademicResourcesPage() {
             ) : (
               <div>
                 <label className="mb-1 block text-sm text-gray-700">
-                  Archivo PDF {editingResource?.tipo === 'pdf' && '(opcional para conservar el actual)'}
+                  Archivo PDF{' '}
+                  {editingResource?.tipo === 'pdf' &&
+                    '(opcional para conservar el actual)'}
                 </label>
                 <input
                   key={`${editingResource?.uuid || 'nuevo'}-${resourceForm.tipo}`}
@@ -1156,7 +775,7 @@ export default function AcademicResourcesPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={saving || !selectedResourceSubject}
+                disabled={saving || !selectedGroup?.maestro}
                 className="bg-red-800 hover:bg-red-900"
               >
                 {saving ? 'Guardando...' : 'Guardar recurso'}

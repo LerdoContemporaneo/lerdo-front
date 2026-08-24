@@ -36,6 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Grupos', href: '/grupos', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Recursos', href: '/recursos-academicos', roles: ['administrador', 'coordinador', 'maestro'] },
+    { name: 'Horarios', href: '/horarios', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Tareas', href: '/tareas', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Reportes', href: '/reportes', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'coordinador', 'maestro', 'alumno'] },

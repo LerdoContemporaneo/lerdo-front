@@ -945,6 +945,7 @@ export type AcademicGroup = {
   nivelId: number | null;
   maestroId?: number | null;
   nivel?: EducationalLevel | null;
+  maestro?: AcademicTeacher | null;
 };
 
 export type Subject = {
@@ -976,9 +977,9 @@ export type AcademicResource = {
   archivoMime?: string | null;
   archivoTamano?: number | null;
   tieneArchivo: boolean;
-  materiaId: number;
+  gradoId: number;
   creadoPorId?: number | null;
-  materia?: Subject | null;
+  grado?: AcademicGroup | null;
   creadoPor?: AcademicTeacher | null;
   createdAt: string;
   updatedAt: string;
@@ -988,7 +989,7 @@ export type AcademicResourcePayload = {
   titulo: string;
   descripcion?: string;
   tipo: 'enlace' | 'pdf';
-  materiaId: number;
+  gradoId: number;
   enlace?: string;
   archivoBase64?: string;
   archivoNombre?: string;
@@ -1067,7 +1068,7 @@ export const subjectService = {
 };
 
 export const academicResourceService = {
-  getAll: async (filters: { materiaId?: number; gradoId?: number } = {}) => {
+  getAll: async (filters: { gradoId?: number } = {}) => {
     const query = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
