@@ -928,3 +928,237 @@ export const homeworkService = {
     return data;
   },
 };
+
+// --- MATERIAS Y RECURSOS ACADEMICOS ---
+export type AcademicTeacher = {
+  id: number;
+  uuid: string;
+  name: string;
+  email?: string;
+  role?: string;
+};
+
+export type AcademicGroup = {
+  id: number;
+  uuid: string;
+  nombre: string;
+  nivelId: number | null;
+  maestroId?: number | null;
+  nivel?: EducationalLevel | null;
+};
+
+export type Subject = {
+  id: number;
+  uuid: string;
+  nombre: string;
+  gradoId: number;
+  maestroId: number;
+  grado?: AcademicGroup | null;
+  maestro?: AcademicTeacher | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SubjectPayload = {
+  nombre: string;
+  gradoId: number;
+  maestroId: number;
+};
+
+export type AcademicResource = {
+  id: number;
+  uuid: string;
+  titulo: string;
+  descripcion?: string | null;
+  tipo: 'enlace' | 'pdf';
+  enlace?: string | null;
+  archivoNombre?: string | null;
+  archivoMime?: string | null;
+  archivoTamano?: number | null;
+  tieneArchivo: boolean;
+  materiaId: number;
+  creadoPorId?: number | null;
+  materia?: Subject | null;
+  creadoPor?: AcademicTeacher | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademicResourcePayload = {
+  titulo: string;
+  descripcion?: string;
+  tipo: 'enlace' | 'pdf';
+  materiaId: number;
+  enlace?: string;
+  archivoBase64?: string;
+  archivoNombre?: string;
+};
+
+export const subjectService = {
+  getAll: async (filters: { gradoId?: number; maestroId?: number } = {}) => {
+    const query = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined) query.set(key, String(value));
+    });
+
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const res = await fetch(`${BASE_URL}/materias${suffix}`, fetchConfig);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible obtener las materias (${res.status})`
+      );
+    }
+
+    return ensureArray(data) as Subject[];
+  },
+
+  create: async (payload: SubjectPayload) => {
+    const res = await fetch(`${BASE_URL}/materias`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible crear la materia (${res.status})`
+      );
+    }
+
+    return (data.materia ?? data) as Subject;
+  },
+
+  update: async (uuid: string, payload: SubjectPayload) => {
+    const res = await fetch(`${BASE_URL}/materias/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible actualizar la materia (${res.status})`
+      );
+    }
+
+    return (data.materia ?? data) as Subject;
+  },
+
+  delete: async (uuid: string) => {
+    const res = await fetch(`${BASE_URL}/materias/${uuid}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible eliminar la materia (${res.status})`
+      );
+    }
+
+    return data;
+  },
+};
+
+export const academicResourceService = {
+  getAll: async (filters: { materiaId?: number; gradoId?: number } = {}) => {
+    const query = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined) query.set(key, String(value));
+    });
+
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const res = await fetch(
+      `${BASE_URL}/recursos-academicos${suffix}`,
+      fetchConfig
+    );
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg ||
+          `No fue posible obtener los recursos (${res.status})`
+      );
+    }
+
+    return ensureArray(data) as AcademicResource[];
+  },
+
+  create: async (payload: AcademicResourcePayload) => {
+    const res = await fetch(`${BASE_URL}/recursos-academicos`, {
+      ...fetchConfig,
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible publicar el recurso (${res.status})`
+      );
+    }
+
+    return (data.recurso ?? data) as AcademicResource;
+  },
+
+  update: async (
+    uuid: string,
+    payload: AcademicResourcePayload
+  ) => {
+    const res = await fetch(`${BASE_URL}/recursos-academicos/${uuid}`, {
+      ...fetchConfig,
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible actualizar el recurso (${res.status})`
+      );
+    }
+
+    return (data.recurso ?? data) as AcademicResource;
+  },
+
+  delete: async (uuid: string) => {
+    const res = await fetch(`${BASE_URL}/recursos-academicos/${uuid}`, {
+      ...fetchConfig,
+      method: 'DELETE',
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.msg || `No fue posible eliminar el recurso (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  downloadPdf: async (uuid: string) => {
+    const res = await fetch(
+      `${BASE_URL}/recursos-academicos/${uuid}/archivo`,
+      {
+        credentials: 'include',
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(
+        data?.msg || `No fue posible descargar el PDF (${res.status})`
+      );
+    }
+
+    return res.blob();
+  },
+};

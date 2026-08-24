@@ -35,6 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Soporte', href: '/soporte', roles: ['administrador', 'maestro'] },
     { name: 'Grupos', href: '/grupos', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Alumnos', href: '/alumnos', roles: ['administrador', 'coordinador', 'maestro'] },
+    { name: 'Recursos', href: '/recursos-academicos', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Tareas', href: '/tareas', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Reportes', href: '/reportes', roles: ['administrador', 'coordinador', 'maestro'] },
     { name: 'Incidencias', href: '/incidents', roles: ['administrador', 'coordinador', 'maestro', 'alumno'] },
@@ -80,13 +81,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Lado Derecho: Navegación y Usuario (Oculto en Celulares) */}
-          <nav className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-1 bg-red-800/50 rounded-lg p-1">
+          <nav className="hidden min-w-0 items-center gap-3 md:flex">
+            <div className="flex max-w-[64vw] items-center gap-1 overflow-x-auto rounded-lg bg-red-800/50 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:max-w-[72vw]">
                 {allowedLinks.map((link) => (
                   <Link 
                     key={link.name} 
                     href={link.href} 
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    className={`shrink-0 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       pathname === link.href ? 'bg-red-700 font-bold' : 'hover:bg-red-700'
                     }`}
                   >
