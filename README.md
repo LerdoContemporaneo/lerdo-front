@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CELC Portal - Frontend 🚀
 
-## Getting Started
+¡Bienvenido al repositorio frontend del **Portal CELC**! Este proyecto forma parte del ecosistema de **Lerdo Contemporáneo** y está construido utilizando las tecnologías web más modernas y eficientes del mercado.
 
-First, run the development server:
+El proyecto ha sido inicializado con `create-next-app` y está optimizado para ofrecer una experiencia de usuario rápida, accesible y de alto rendimiento.
 
+## 🛠️ Tecnologías Principales
+
+* **Next.js 15+** (App Router) - Framework de React para el renderizado en el servidor y generación de sitios estáticos.
+* **TypeScript** - Tipado estático para un código más seguro y mantenible.
+* **Tailwind CSS / PostCSS** - Framework de estilos enfocado en utilidades para un diseño ágil y responsivo.
+* **Geist Font** - Tipografía moderna optimizada automáticamente mediante `next/font`.
+* **pnpm / npm** - Gestores de paquetes preparados para resolver dependencias eficientemente.
+
+---
+
+## 🚀 Inicio Rápido
+
+Sigue estos pasos para clonar el proyecto y ejecutarlo en tu entorno local:
+
+### 1. Clonar el repositorio
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com
+cd lerdo-front
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configurar variables de entorno
+Copia el archivo de ejemplo para crear tu configuración local:
+```bash
+cp .env.example .env.local
+```
+*Abre el archivo `.env.local` recién creado y completa los valores con tus credenciales locales.*
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Instalar dependencias
+Puedes usar tu gestor de paquetes preferido (se recomienda `pnpm` por consistencia con el proyecto):
+```bash
+pnpm install
+# o bien
+npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Levantar el servidor de desarrollo
+```bash
+pnpm dev
+# o bien
+npm run dev
+```
 
-## Learn More
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación en funcionamiento. Puedes comenzar a editar el código modificando el archivo `src/app/page.tsx`.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📁 Estructura del Proyecto
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+├── public/          # Archivos estáticos (imágenes, favicons, etc.)
+├── src/
+│   └── app/         # Enrutamiento de Next.js (App Router) y páginas
+├── .env.example     # Plantilla de variables de entorno
+├── next.config.ts   # Configuración de Next.js
+├── tsconfig.json    # Configuración de TypeScript
+└── tailwind.config  # Configuración de estilos de Tailwind
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🌐 Despliegue
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+La forma más sencilla de desplegar esta aplicación es utilizando la plataforma **Vercel** (creadores de Next.js):
+
+1. Conecta tu cuenta de GitHub a Vercel.
+2. Importa el repositorio `lerdo-front`.
+3. Configura las variables de entorno requeridas en el panel de Vercel.
+4. ¡Haz clic en Deploy!
+
+Para más detalles, consulta la [documentación de despliegue de Next.js](https://nextjs.org).
+
+---
+
+🏢 **Desarrollado por:** [Lerdo Contemporáneo](https://github.com/LerdoContemporaneo) , [Ely Nañez](https://github.com/3ly4ir777), [Javier Benavente](https://github.com/javis24) 
+🔗 **Portal Oficial:** [://lerdocontemporaneo.com](https://://lerdocontemporaneo.com/login)
